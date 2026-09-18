@@ -236,16 +236,20 @@ def layout(dataset):
 def dataset_from_report(report):
     import os
 
-    from ..services.datasets import load_dataset
+    from ..services.datasets import active_key, load_dataset
     from ..storage.minio import client_from_env
 
     key = report.get("props", {}).get("data-manifest-key") if isinstance(report, dict) else None
-    if not key:
-        return None
     from botocore.exceptions import ClientError
 
+    if not os.environ.get("NEXORA_S3_BUCKET"):
+        return None
+    client = client_from_env()
+    bucket = os.environ["NEXORA_S3_BUCKET"]
     try:
-        return load_dataset(client_from_env(), os.environ["NEXORA_S3_BUCKET"], key)
+        # The published selection survives page reloads; reading never starts collection.
+        key = key or active_key(client, bucket)
+        return load_dataset(client, bucket, key) if key else None
     except ClientError as exc:
         if exc.response["Error"]["Code"] in {"NoSuchKey", "404"}:
             return None

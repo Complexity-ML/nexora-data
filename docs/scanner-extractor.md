@@ -96,7 +96,7 @@ Ce test appelle les endpoints Dash, scanne la base fictive, extrait 100 observat
 
 ## Analyse et projection
 
-En mode démonstration, le DW fictif est la seule source. Le démarrage ne génère aucune donnée et ne charge aucun résultat. Le DW est préparé explicitement ; le scan et la collecte se lancent depuis Sources. Chaque nouvelle collecte complète et valide devient la source de l’analyse ; les essais tronqués ne la remplacent pas. Le dashboard affiche les résultats de la collecte déclenchée dans la session, sans redémarrage. Extractions distingue la collecte utilisée de son historique. Les vues sont exportées mais ne sont pas recomptées dans les indicateurs, calculés à partir des tables d’observations.
+En mode démonstration, le DW fictif est la seule source. Le démarrage ne génère aucune donnée et ne lance aucune collecte. Les résultats déjà publiés sont restaurés depuis MinIO après un rafraîchissement. Le DW est préparé explicitement ; le scan et la collecte se lancent depuis Sources. Chaque nouvelle collecte complète et valide devient la source de l’analyse ; les essais tronqués ne la remplacent pas. Le dashboard affiche les résultats de la collecte publiée, sans redémarrage. Extractions distingue la collecte utilisée de son historique. Les vues sont exportées mais ne sont pas recomptées dans les indicateurs, calculés à partir des tables d’observations.
 
 L’accueil calcule le nombre d’utilisateurs actifs distincts par jour et logiciel, avec filtres par entité et période inclusive. Une journée sans couverture complète du périmètre est absente de la courbe, et non remplacée par zéro. Le nombre d’installations est mesuré à la fin de la période choisie.
 

@@ -12,5 +12,5 @@ if is_demo:
 else:
     source_url = os.environ.get("NEXORA_SOURCE_URL") or None
 
-# Startup never generates, extracts or loads demonstration results.
+# Startup never generates or extracts data; callbacks read previously published results.
 server = create_app(source_url, demo=is_demo).server

@@ -198,6 +198,12 @@ def test_live_flow_starts_empty_collects_plots_and_deletes(demo, monkeypatch):
 
             rendered = render()
             assert "usage-chart" in rendered and "Projection J+7" in rendered
+            # A refresh loses the UI report, but keeps the published collection and results.
+            before_refresh = s3.list_objects_v2(Bucket="test-results")["Contents"]
+            report = None
+            refreshed = render()
+            assert "usage-chart" in refreshed and "Projection J+7" in refreshed
+            assert s3.list_objects_v2(Bucket="test-results")["Contents"] == before_refresh
             key = list_extractions()[0]["manifest_key"]
             ident = {"type": "delete-extraction", "key": key}
             response = client.post(
@@ -231,7 +237,7 @@ def test_live_flow_starts_empty_collects_plots_and_deletes(demo, monkeypatch):
             )
             assert app.explorer.jobs[job_id][1].result(timeout=15)["analysis_updated"]
             assert len(list_extractions()) == 1
-            # Existing output must not be loaded on a new page session.
+            # Initial HTML is empty; the read-only callback restores published results.
             assert "usage-chart" not in client.get("/_dash-layout").text
         finally:
             app.explorer.close()
