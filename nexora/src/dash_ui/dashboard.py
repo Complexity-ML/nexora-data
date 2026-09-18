@@ -119,6 +119,7 @@ def layout(dataset):
                                 ],
                                 value=software,
                                 clearable=False,
+                                searchable=False,
                                 className="nx-select",
                             ),
                         ]
@@ -135,6 +136,7 @@ def layout(dataset):
                                 ],
                                 value=0,
                                 clearable=False,
+                                searchable=False,
                                 className="nx-select",
                             ),
                         ]
