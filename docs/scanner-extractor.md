@@ -5,21 +5,21 @@
 Depuis `/Users/boris/Dev/nexora-data` :
 
 ```sh
-uv sync --locked
-uv run nexora-data --help
+pip install -e .
+nexora-data --help
 ```
 
-Python 3.11 ou supérieur. Les versions résolues sont conservées dans `uv.lock`.
+Python 3.11 ou supérieur.
 
 ## Démonstration locale reproductible
 
 Les données de cette démonstration sont fictives. Le script refuse d’écraser une base existante.
 
 ```sh
-uv run python examples/create_demo.py
+python examples/create_demo.py
 export NEXORA_SOURCE_URL="sqlite:///data/demo.sqlite"
-uv run nexora-data scan --schema main --output data/catalog.json
-uv run nexora-data extract --selection examples/selection.json --output data/bronze
+nexora-data scan --schema main --output data/catalog.json
+nexora-data extract --selection examples/selection.json --output data/bronze
 ```
 
 Le catalogue JSON donne les schémas, tables et vues, champs/types, nullabilité, valeurs par défaut, colonnes calculées/identités si exposées, clés primaires, clés étrangères, index et commentaires disponibles. Une métadonnée non prise en charge par le pilote est indiquée explicitement. Les noms et commentaires peuvent contenir des informations internes : conserver les catalogues dans un stockage autorisé.
@@ -32,8 +32,8 @@ Sans `--schema`, les schémas retournés par le pilote sont explorés, hors sch�
 
 `NEXORA_SOURCE_URL` est lu dans l’environnement uniquement. Ne pas enregistrer sa valeur dans les fichiers du projet ou les commandes partagées. Aucun `.env` n’est chargé automatiquement.
 
-- PostgreSQL : installer `uv sync --locked --extra postgres`, puis utiliser une URL SQLAlchemy `postgresql+psycopg`.
-- SQL Server : installer `uv sync --locked --extra mssql`, ainsi que le pilote ODBC système adapté, puis utiliser une URL SQLAlchemy `mssql+pyodbc`.
+- PostgreSQL : installer `pip install -e ".[postgres]"`, puis utiliser une URL SQLAlchemy `postgresql+psycopg`.
+- SQL Server : installer `pip install -e ".[mssql]"`, ainsi que le pilote ODBC système adapté, puis utiliser une URL SQLAlchemy `mssql+pyodbc`.
 - SQLite : inclus pour les tests et démonstrations.
 
 Seul SQLite a été testé localement pour cette première version. Les adaptateurs PostgreSQL et SQL Server reposent sur les dialectes SQLAlchemy mais doivent être validés sur le moteur et le pilote réels. Les autres moteurs seront ajoutés après identification du DW.
@@ -76,8 +76,8 @@ Les erreurs CLI affichent leur classe, sans traceback ni message brut du pilote 
 ## Tests
 
 ```sh
-uv run pytest -q
-uv run ruff check .
+pytest -q
+ruff check .
 ```
 
 Références techniques : [réflexion SQLAlchemy](https://docs.sqlalchemy.org/en/20/core/reflection.html), [écriture Parquet avec PyArrow](https://arrow.apache.org/docs/python/parquet.html).
