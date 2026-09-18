@@ -16,3 +16,31 @@
 .nx-app .table-wrap details { margin-top: 18px; }
 .nx-app .table-wrap summary { cursor: pointer; color: var(--nx-muted); font-size: 12px; }
 .nx-app .table-wrap pre { max-height: 300px; overflow: auto; font-size: 12px; background: #fafafa; padding: 16px; }
+
+/* Dash 4 places className on a wrapper; the native input must fill it. */
+.nx-app .nx-input.dash-input-container {
+  display: flex;
+  height: 40px;
+  padding: 0;
+  cursor: text;
+}
+.nx-app .nx-input.dash-input-container > .dash-input-element {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--nx-text);
+  font: inherit;
+  cursor: text;
+}
+.nx-app .nx-input.dash-input-container > .dash-input-element::placeholder {
+  color: var(--nx-muted);
+}
+.nx-app .nx-input.dash-input-container:focus-within {
+  border-color: var(--nx-accent);
+  outline: 2px solid var(--nx-focus);
+  outline-offset: 2px;
+}
