@@ -7,7 +7,7 @@ name = "nexora-data"
 version = "0.1.0"
 description = "SQL metadata discovery and selective Bronze Parquet extraction"
 requires-python = ">=3.11"
-dependencies = ["sqlalchemy>=2.0,<3", "pyarrow>=19,<26", "pydantic>=2.10,<3", "dash>=3,<5", "boto3>=1.35,<2", "gunicorn>=23,<26"]
+dependencies = ["sqlalchemy>=2.0,<3", "pyarrow>=19,<26", "pydantic>=2.10,<3", "dash>=3,<5", "boto3>=1.35,<2", "gunicorn>=23,<26", "scikit-learn>=1.5,<2"]
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]

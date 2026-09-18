@@ -5,7 +5,7 @@ Nexora-data est une application Python/Dash d’analyse de l’usage logiciel, a
 ## Fonctionnalités
 
 - Dashboard d’usage avec filtres par logiciel, entité et période.
-- Historique, couverture des observations et projection statistique J+7.
+- Historique, couverture des observations et comparaison tendance / arbre de régression à J+7.
 - Historique et suppression individuelle des extractions dans MinIO, sans modifier la source SQL.
 
 - Scan des schémas, tables, vues et métadonnées des champs.

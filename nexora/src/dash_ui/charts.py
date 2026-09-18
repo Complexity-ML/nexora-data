@@ -38,7 +38,7 @@ def usage_chart(result):
             go.Scatter(
                 x=[p["date"].isoformat() for p in points],
                 y=[p["active_users"] for p in points],
-                name="Projection J+7",
+                name="Tendance J+7",
                 mode="lines+markers",
                 line={"dash": "dot", "width": 2.5, "color": "#4f73c3"},
                 marker={"size": 5},
@@ -53,6 +53,19 @@ def usage_chart(result):
             y1=1,
             yref="paper",
             line={"color": "#a1a1aa", "dash": "dot"},
+        )
+    if result.get("tree_forecast"):
+        points = [history[-1], *result["tree_forecast"]]
+        fig.add_trace(
+            go.Scatter(
+                x=[p["date"].isoformat() for p in points],
+                y=[p["active_users"] for p in points],
+                name="Arbre J+7",
+                mode="lines+markers",
+                line={"dash": "dash", "width": 2.5, "color": "#a45a32"},
+                marker={"size": 5},
+                hovertemplate="%{y:.1f} utilisateurs estimés<extra></extra>",
+            )
         )
     for point in history:
         if point["active_users"] is None:

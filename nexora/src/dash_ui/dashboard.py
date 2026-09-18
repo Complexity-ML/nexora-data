@@ -48,8 +48,8 @@ def results(dataset, software, organization, start, end):
         quality += " Projection indisponible : prévoir au moins quatre observations de chaque jour de semaine et une dernière journée complète."
     evaluation = result["evaluation"]
     error = (
-        f"Erreur moyenne à J+7 : {evaluation['mae']} utilisateurs, sur {evaluation['targets']} dates historiques. "
-        f"Référence « même jour de la semaine précédente » : {evaluation['baseline_mae']}."
+        f"Erreur moyenne à J+7 : tendance {evaluation['mae']} · arbre {evaluation['tree_mae']} utilisateurs. "
+        f"Comparaison sur les mêmes {evaluation['targets']} dates passées ; plus bas = meilleur."
         if evaluation["mae"] is not None
         else "Historique insuffisant pour mesurer l’erreur à J+7."
     )
@@ -208,7 +208,7 @@ def layout(dataset):
                         [
                             html.H2("Lire la projection"),
                             html.P(
-                                "La courbe pointillée estime les utilisateurs actifs des sept jours suivant la fin de période."
+                                "Les deux courbes comparent la tendance et l’arbre de régression sur les sept jours suivants."
                             ),
                             html.P(error, id="forecast-evaluation"),
                             html.Details(
@@ -218,7 +218,7 @@ def layout(dataset):
                                         "Tendance linéaire séparée pour chaque jour de semaine, sur les huit dernières semaines au maximum. Les jours sans collecte sont exclus. Le calcul utilise uniquement les données antérieures à la date projetée."
                                     ),
                                     html.P(
-                                        "Estimation à population installée constante, sans entraînement ML. Elle ne mesure ni les licences disponibles ni la conformité contractuelle. Une estimation n’est pas une garantie."
+                                        "Arbre de régression limité à trois niveaux, entraîné sur le même historique avec le jour de semaine et la date. Comparaison à J+7 sans utiliser de données futures. Estimations à population installée constante. Elle ne mesure ni les licences disponibles ni la conformité contractuelle. Une estimation n’est pas une garantie."
                                     ),
                                 ]
                             ),

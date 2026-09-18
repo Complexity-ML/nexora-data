@@ -113,3 +113,9 @@ docker compose exec -T app python < scripts/smoke_analytics.py
 ```
 
 Dans **Extractions**, le bouton **Supprimer** retire les Parquet et le manifeste de la collecte sélectionnée après confirmation. La source SQL et les autres extractions sont conservées. Les graphiques liés à une collecte supprimée sont retirés ; une nouvelle collecte peut être lancée depuis Sources.
+
+### Comparaison tendance et arbre
+
+Les deux méthodes utilisent les observations complètes des 56 derniers jours. La tendance ajuste une droite par jour de semaine ; l’arbre de régression utilise la date et le jour de semaine, avec une profondeur maximale de 3 et au moins 4 observations par feuille. Ces paramètres sont fixes, sans recherche d’hyperparamètres.
+
+La MAE à J+7 est mesurée sur les mêmes dates historiques disponibles (14 au maximum). Pour chaque date testée, les deux méthodes utilisent uniquement l’historique disponible sept jours auparavant. Une erreur plus faible indique une meilleure performance sur cette période, sans garantir les prévisions futures. Aucune pondération de classes : la cible est un nombre d’utilisateurs.

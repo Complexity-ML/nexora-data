@@ -87,6 +87,7 @@ class UsageDataset:
         return {
             "history": history,
             "forecast": forecast,
+            "tree_forecast": predict(history, population=population, tree=True),
             "evaluation": backtest(history, populations),
             "installations": len(installs),
             "population": population,

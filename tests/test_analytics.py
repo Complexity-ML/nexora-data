@@ -208,3 +208,23 @@ def test_dashboard_uses_new_full_dw_collection_but_not_limited_trials(tmp_path, 
             assert {run["source"] for run in runs} == {"demo-enterprise"}
         finally:
             explorer.close()
+
+
+def test_tree_calendar_forecast_and_paired_backtest():
+    start = date(2026, 1, 5)
+    history = [
+        {"date": start + timedelta(days=i), "active_users": 60 if i % 7 < 5 else 10}
+        for i in range(90)
+    ]
+    forecast = predict(history, tree=True)
+    assert len(forecast) == 7
+    assert [p["active_users"] for p in forecast] == [
+        60 if p["date"].weekday() < 5 else 10 for p in forecast
+    ]
+    score = backtest(history)
+    assert score["targets"] == 14
+    assert score["mae"] == score["tree_mae"] == 0
+    assert all(p["active_users"] <= 20 for p in predict(history, population=20, tree=True))
+    assert predict(history[:20], tree=True) == []
+    history[-1]["active_users"] = None
+    assert predict(history, tree=True) == []
