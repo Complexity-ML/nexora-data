@@ -66,7 +66,7 @@ def test_opportunity_link_selects_same_analysis_scope():
     dataset = data()
     row = opportunities(dataset)["rows"][0]
     rendered = layout(dataset)
-    assert "Voir l’analyse" in str(rendered)
+    assert "op-table" in str(rendered)
     app = create_app(dataset=dataset)
     client = app.server.test_client()
     try:
@@ -113,3 +113,32 @@ def test_opportunity_link_selects_same_analysis_scope():
         assert result["period-filter"]["end_date"] == row["end"].isoformat()
     finally:
         app.explorer.close()
+
+
+def test_pagination_bounds_filtering_and_detail():
+    from nexora.src.analytics.opportunities import OpportunityView
+
+    dataset = data()
+    view = OpportunityView(dataset)
+    original = view.rows[0]
+    view.rows = [
+        {**original, "software": f"Logiciel {i:04}", "software_id": i + 1} for i in range(103)
+    ]
+    first, second = view.page(), view.page(page=1)
+    assert first["total"] == 103
+    assert len(first["rows"]) == len(second["rows"]) == 25
+    assert not {r["software_id"] for r in first["rows"]} & {
+        r["software_id"] for r in second["rows"]
+    }
+    assert all("installations" not in r for r in first["rows"])
+    assert len(view.page(page=4)["rows"]) == 3
+    assert len(view.page(size=100000)["rows"]) == 100
+    assert view.page(search="Logiciel 0001")["total"] == 1
+    assert view.page(organization=2)["total"] == 0
+    assert len(list(view.export_rows(search="Logiciel 0001"))) == 2
+    view.rows[0]["installations"] = [
+        {"id": i, "machine_id": i, "installed_on": dataset.start} for i in range(1000)
+    ]
+    detail = view.page(detail=(1, original["organization_id"], original["kind"]), page=2)
+    assert detail["total"] == 1000 and len(detail["rows"]) == 25
+    assert detail["rows"][0]["id"] == 50

@@ -110,3 +110,76 @@ def opportunities(dataset):
         )
     )
     return {"rows": rows, "start": start, "end": end, "excluded": excluded}
+
+
+class OpportunityView:
+    """Present existing analysis in pages without changing the extraction pipeline."""
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.manifest = dataset.manifest
+        result = opportunities(dataset)
+        self.excluded = result["excluded"]
+        self.rows = result["rows"]
+
+    def filtered(self, search="", organization=0, kind=""):
+        return [
+            row
+            for row in self.rows
+            if (search or "").casefold() in row["software"].casefold()
+            and (not organization or row["organization_id"] == int(organization))
+            and (not kind or row["kind"] == kind)
+        ]
+
+    def page(self, search="", organization=0, kind="", page=0, size=25, detail=None):
+        size = min(100, max(1, int(size)))
+        rows = self.filtered(search, organization, kind)
+        if detail:
+            sid, oid, signal = detail
+            match = next(
+                (
+                    r
+                    for r in self.rows
+                    if r["software_id"] == sid
+                    and r["organization_id"] == oid
+                    and r["kind"] == signal
+                ),
+                None,
+            )
+            rows = match["installations"] if match else []
+        total = len(rows)
+        page = min(max(0, int(page or 0)), max(0, (total - 1) // size))
+        selected = rows[page * size : (page + 1) * size]
+        if detail:
+            selected = [
+                {key: i[key] for key in ("id", "machine_id", "installed_on")} for i in selected
+            ]
+        else:
+            selected = [
+                {key: value for key, value in row.items() if key != "installations"}
+                for row in selected
+            ]
+        return {"rows": selected, "total": total, "page": page, "size": size}
+
+    def export_rows(self, search="", organization=0, kind=""):
+        yield [
+            "Logiciel",
+            "Entité",
+            "Signal",
+            "Installations",
+            "Début",
+            "Fin",
+            "Couverture",
+            "Observation",
+        ]
+        for row in self.filtered(search, organization, kind):
+            yield [
+                row["software"],
+                row["organization"],
+                row["kind"],
+                row["count"],
+                row["start"],
+                row["end"],
+                row["coverage"],
+                row["evidence"],
+            ]

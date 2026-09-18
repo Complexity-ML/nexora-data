@@ -227,6 +227,14 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
         html.Div(id="page-opportunities", className="opportunities-page", style={"display": "none"})
     )
     dashboard.register(app, dataset, dataset_provider)
+    opportunities.register(
+        app,
+        lambda report: (
+            (dataset_provider() if dataset_provider else dataset)
+            if dataset is not None
+            else dashboard.dataset_from_report(report)
+        ),
+    )
 
     @app.callback(
         Output("page-opportunities", "children"),

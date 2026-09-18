@@ -5,3 +5,8 @@
 .opportunities-page summary { cursor: pointer; }
 .opportunities-page details ul { max-height: 180px; overflow: auto; padding-left: 20px; }
 .opportunities-page a { color: var(--nx-accent); font-weight: 600; white-space: nowrap; }
+
+.op-filters { display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin:24px 0; }
+.op-filters label { display:block;margin-bottom:8px; }
+.op-toolbar { display:flex;justify-content:space-between;align-items:center;gap:24px; }
+.opportunities-page h2 { margin-top:28px; }
