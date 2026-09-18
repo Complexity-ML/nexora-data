@@ -1,0 +1,7 @@
+{
+  "source_label": "demo-local",
+  "batch_size": 1000,
+  "objects": [
+    {"schema": "main", "name": "daily_usage", "columns": ["id", "software_id", "observed_on", "active_users"], "row_limit": 10000}
+  ]
+}

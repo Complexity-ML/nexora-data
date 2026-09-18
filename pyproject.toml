@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nexora-data"
+version = "0.1.0"
+description = "SQL metadata discovery and selective Bronze Parquet extraction"
+requires-python = ">=3.11"
+dependencies = ["sqlalchemy>=2.0,<3", "pyarrow>=19,<26", "pydantic>=2.10,<3"]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+mssql = ["pyodbc>=5.2,<6"]
+
+[project.scripts]
+nexora-data = "nexora_data.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
