@@ -75,7 +75,8 @@ def test_dash_http_scan_select_extract(demo, tmp_path):
         layout = client.get("/_dash-layout")
         assert layout.status_code == 200
         assert str(demo) not in layout.text
-        assert client.get("/assets/style.css").status_code == 200
+        for stylesheet in ("theme", "layout", "components", "sources"):
+            assert client.get(f"/assets/{stylesheet}.css").status_code == 200
         inputs = [("scan", "n_clicks", 1), ("extract", "n_clicks", 0), ("poll", "n_intervals", 0)]
         states = [
             ("schemas", "value", "main"),

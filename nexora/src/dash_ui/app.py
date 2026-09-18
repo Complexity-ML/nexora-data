@@ -122,6 +122,7 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Label("Schémas à explorer"),
                                     dcc.Input(
                                         id="schemas",
+                                        className="nx-input",
                                         placeholder="Tous les schémas accessibles",
                                         type="text",
                                         debounce=True,
@@ -129,10 +130,15 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Small(
                                         "Plusieurs schémas : séparez leurs noms par une virgule."
                                     ),
-                                    html.Button("Scanner la source", id="scan", n_clicks=0),
+                                    html.Button(
+                                        "Scanner la source",
+                                        id="scan",
+                                        n_clicks=0,
+                                        className="nx-button",
+                                    ),
                                     html.Div(id="catalog-summary", className="summary"),
                                 ],
-                                className="panel",
+                                className="nx-card",
                             ),
                             html.Section(
                                 [
@@ -140,12 +146,14 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Label("Table ou vue"),
                                     dcc.Dropdown(
                                         id="object",
+                                        className="nx-select",
                                         options=[],
                                         placeholder="Lancez d’abord le scan",
                                     ),
                                     html.Label("Champs à extraire"),
                                     dcc.Dropdown(
                                         id="columns",
+                                        className="nx-select",
                                         options=[],
                                         multi=True,
                                         placeholder="Sélection explicite des champs",
@@ -153,6 +161,7 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Label("Limite de lignes"),
                                     dcc.Input(
                                         id="limit",
+                                        className="nx-input",
                                         type="number",
                                         min=1,
                                         max=1000000,
@@ -165,11 +174,12 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Button(
                                         "Extraire en Parquet →",
                                         id="extract",
+                                        className="nx-button",
                                         n_clicks=0,
                                         disabled=True,
                                     ),
                                 ],
-                                className="panel",
+                                className="nx-card",
                             ),
                         ],
                         className="grid",
@@ -183,7 +193,7 @@ def create_app(source_url=None, output=None, demo=False):
                                 id="metadata",
                             ),
                         ],
-                        className="panel",
+                        className="nx-card",
                     ),
                     html.Section(
                         [
@@ -192,15 +202,16 @@ def create_app(source_url=None, output=None, demo=False):
                                 "Les résultats et leur provenance apparaîtront ici.", id="result"
                             ),
                         ],
-                        className="panel",
+                        className="nx-card",
                     ),
                     dcc.Store(id="catalog"),
                     dcc.Store(id="job"),
                     dcc.Interval(id="poll", interval=800),
-                ]
+                ],
+                className="sources-page",
             ),
         ],
-        className="shell",
+        className="shell nx-app",
     )
 
     @app.callback(

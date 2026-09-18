@@ -1,0 +1,17 @@
+/* SQL Sources page only. */
+.sources-page .notice { border: 1px solid var(--nx-border); padding: 12px 16px; margin: 22px 0; background: var(--nx-surface); color: var(--nx-muted); border-radius: 6px; font-size: 13px; }
+.sources-page .grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(16px, 1.5vw, 28px); align-items: start; }
+.sources-page .nx-card { margin-bottom: 22px; }
+.sources-page .nx-card p { max-width: 80ch; }
+.sources-page .nx-card label { display: block; font-size: 13px; font-weight: 500; margin: 18px 0 8px; }
+.sources-page .nx-card small { display: block; line-height: 1.5; color: var(--nx-muted); font-size: 12px; margin-top: 8px; }
+.sources-page .nx-card .nx-button { margin-top: 20px; }
+.sources-page .summary { margin-top: 20px; font-weight: 600; color: var(--nx-accent); }
+.sources-page .summary:empty { display: none; }
+.sources-page .status { margin-bottom: 22px; padding: 12px 16px; background: #edf3f0; border: 1px solid #dae6df; border-radius: 6px; color: #315549; }
+.sources-page .result-number { font-size: 26px; font-weight: 600; }
+.sources-page #result p { overflow-wrap: anywhere; }
+@media (max-width: 1200px) {
+  .sources-page .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .sources-page .nx-card { padding: 20px; }
+}

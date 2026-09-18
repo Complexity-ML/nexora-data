@@ -1,0 +1,18 @@
+/* Shared components. Never target unqualified button/input selectors: Dash owns its internal controls. */
+.nx-card { background: var(--nx-surface); border: 1px solid var(--nx-border); border-radius: var(--nx-radius); padding: clamp(20px, 1.6vw, 28px); min-width: 0; box-shadow: 0 1px 2px #18181b04; }
+.nx-button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; border: 1px solid transparent; background: var(--nx-accent); color: #fff; padding: 9px 16px; border-radius: 6px; font: 500 14px var(--nx-font); cursor: pointer; }
+.nx-button:hover { background: var(--nx-accent-hover); }
+.nx-button:disabled { background: #f4f4f5; color: #71717a; border-color: var(--nx-border); cursor: not-allowed; }
+.nx-input { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 40px; border: 1px solid #d4d4d8; border-radius: 6px; padding: 9px 12px; color: var(--nx-text); background: var(--nx-surface); font: inherit; box-shadow: 0 1px 2px #18181b04; }
+.nx-input::placeholder { color: var(--nx-muted); }
+.nx-select { min-width: 0; max-width: 100%; font: inherit; }
+.nx-button:focus-visible, .nx-input:focus-visible { outline: 2px solid var(--nx-focus); outline-offset: 2px; }
+.nx-app .badge { padding: 6px 10px; border: 1px solid var(--nx-border); border-radius: 6px; background: var(--nx-surface); color: #52525b; white-space: nowrap; font-size: 12px; }
+.nx-app .table-wrap { overflow: auto; max-width: 100%; }
+.nx-app .table-wrap table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.nx-app .table-wrap th { text-align: left; background: #fafafa; color: var(--nx-muted); font-weight: 500; }
+.nx-app .table-wrap th, .nx-app .table-wrap td { padding: 12px 14px; border-bottom: 1px solid var(--nx-border); overflow-wrap: anywhere; }
+.nx-app .table-wrap td:first-child { font-family: monospace; }
+.nx-app .table-wrap details { margin-top: 18px; }
+.nx-app .table-wrap summary { cursor: pointer; color: var(--nx-muted); font-size: 12px; }
+.nx-app .table-wrap pre { max-height: 300px; overflow: auto; font-size: 12px; background: #fafafa; padding: 16px; }

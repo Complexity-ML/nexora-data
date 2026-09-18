@@ -1,0 +1,20 @@
+/* Application tokens. Component behavior belongs in components.css. */
+:root {
+  --nx-background: #f7f8fa;
+  --nx-surface: #ffffff;
+  --nx-text: #18181b;
+  --nx-muted: #71717a;
+  --nx-border: #e4e4e7;
+  --nx-accent: #185c4c;
+  --nx-accent-hover: #124739;
+  --nx-focus: #a7c9bd;
+  --nx-radius: 8px;
+  --nx-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body { margin: 0; background: var(--nx-background); }
+.nx-app { font-family: var(--nx-font); font-size: 14px; color: var(--nx-text); }
+.nx-app, .nx-app * { box-sizing: border-box; }
+.nx-app h1 { font-size: clamp(28px, 2vw, 36px); letter-spacing: -1px; margin: 0 0 10px; font-weight: 650; }
+.nx-app h2 { font-size: 16px; margin: 0 0 18px; font-weight: 600; }
+.nx-app p { color: var(--nx-muted); line-height: 1.6; }
+.nx-app .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.6px; color: var(--nx-muted); margin: 8px 0 18px; }
