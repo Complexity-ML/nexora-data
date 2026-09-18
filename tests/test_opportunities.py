@@ -142,3 +142,21 @@ def test_pagination_bounds_filtering_and_detail():
     detail = view.page(detail=(1, original["organization_id"], original["kind"]), page=2)
     assert detail["total"] == 1000 and len(detail["rows"]) == 25
     assert detail["rows"][0]["id"] == 50
+
+
+def test_overview_groups_by_software_and_drills_to_scopes():
+    from nexora.src.analytics.opportunities import OpportunityView
+    from nexora.src.dash_ui.opportunities import render
+
+    dataset = data()
+    view = OpportunityView(dataset)
+    summary, table, count, page, previous, following = render(view, "", 0, "", "", 0)
+    assert "1 logiciels" in count
+    assert "Examiner" in str(table)
+    assert "Installation 1" not in str(table)
+    detail = render(view, "", 0, "", "?software=1", 0)
+    assert "Voir les installations" in str(detail[1])
+    assert "3 signaux" in detail[2]
+    deeper = render(view, "", 0, "", "?software=1&organization=1&signal=Sans+usage+observ%C3%A9", 0)
+    assert "1 installations" in deeper[2]
+    assert "Machine" in str(deeper[1])

@@ -239,10 +239,11 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
     @app.callback(
         Output("page-opportunities", "children"),
         Input("url", "pathname"),
+        Input("url", "search"),
         Input("result", "children"),
         Input("extraction-history", "children"),
     )
-    def show_opportunities(path, report, history):
+    def show_opportunities(path, search, report, history):
         if path != "/opportunities":
             return no_update
         current = (
@@ -250,7 +251,7 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
             if dataset is not None
             else dashboard.dataset_from_report(report)
         )
-        return opportunities.layout(current)
+        return opportunities.layout(current, search)
 
     @app.callback(
         Output("software-filter", "value"),
@@ -408,6 +409,13 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
                         else "Toutes les lignes de la requête ont été exportées."
                     ),
                     html.P(f"{len(extracted)} tables et vues collectées · tous les champs"),
+                    html.P(
+                        f"{manifest['refresh']['downloaded_rows']:,} lignes récupérées · "
+                        f"{manifest['refresh']['reused_blocks']} blocs inchangés réutilisés · "
+                        f"{manifest['refresh']['removed_blocks']} blocs retirés".replace(",", " ")
+                    )
+                    if "refresh" in manifest
+                    else None,
                     html.P(
                         "Le dashboard utilise cette collecte."
                         if result.get("analysis_updated")

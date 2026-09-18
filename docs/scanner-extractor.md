@@ -127,3 +127,15 @@ Le menu Opportunités exploite la collecte analytique publiée. Il signale les i
 Un signal de baisse compare les utilisateurs actifs quotidiens moyens sur deux périodes consécutives de 28 jours, avec une couverture complète et les mêmes installations présentes avant les deux périodes. Le seuil de détection est une baisse d’au moins 30 %. Ces seuils sont des critères de revue explicites, pas des règles contractuelles. Les signaux peuvent concerner un même périmètre et ne doivent pas être additionnés en licences récupérables.
 
 Chaque ligne indique le logiciel, l’entité, les observations et la couverture. Le lien Voir l’analyse ouvre Plotly avec le même logiciel, la même entité et la période concernée. La décision et la qualification des économies restent au SAM.
+
+### Actualisation par comparaison SQL
+
+Une collecte complète depuis Sources compare les blocs côté SQL. La première collecte initialise les Parquet partitionnés. Les suivantes récupèrent uniquement les lignes des blocs différents, réutilisent les blocs inchangés et retirent du nouveau manifeste les blocs supprimés. Une modification d’une seule ligne peut nécessiter de récupérer son bloc entier. Les collectes limitées restent des essais indépendants.
+
+Une clé primaire entière utilise des plages de 10 000 identifiants. Les autres tables et vues utilisent 256 groupes déterministes. Les empreintes ordonnées incluent le contenu, les valeurs nulles et la multiplicité des lignes. Une modification de structure invalide la comparaison de l’objet. Le DW doit toujours parcourir les données pour calculer ces empreintes. Le gain porte sur le transfert et l’écriture des Parquet, pas sur la suppression du travail SQL.
+
+Les fichiers sont immuables et les manifestes désignent une version complète. La publication intervient après les fichiers. Les lectures analytiques restent attachées à leur manifeste et les suppressions conservent les fragments référencés par une autre extraction. La coordination locale suppose un seul processus applicatif, comme la configuration Gunicorn fournie. Ne pas exécuter plusieurs collecteurs indépendants sur la même source.
+
+SQLite est vérifié avec la démonstration. Les requêtes PostgreSQL et SQL Server restent à valider sur le moteur réel du DW et ses types. PostgreSQL utilise REPEATABLE READ. SQL Server nécessite l’isolation SNAPSHOT activée par l’administrateur. Aucune migration ni activation de paramètre du DW n’est effectuée par l’application. Aucun transfert réduit n’est garanti pour un moteur non validé. Le chargement analytique en mémoire reste celui du prototype et n’a pas été validé sur 92 millions de lignes.
+
+Opportunités présente désormais une ligne par logiciel, puis les signaux par entité et enfin les installations. Chaque niveau affiche au plus 25 lignes. Cette présentation progressive ne modifie pas la collecte du DW.

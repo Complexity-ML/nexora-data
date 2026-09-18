@@ -1,11 +1,11 @@
-"""Paginated UI over the existing usage analysis."""
+"""Progressive SAM review: software, scope, then installations."""
 
 import csv
 import io
 from math import ceil
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 
-from dash import Input, Output, State, dash_table, dcc, html
+from dash import Input, Output, State, ctx, dcc, html
 from flask import Response, request, stream_with_context
 
 from ..analytics.opportunities import OpportunityView
@@ -13,260 +13,353 @@ from ..analytics.opportunities import OpportunityView
 KINDS = ["Sans usage observé", "Usage occasionnel", "Usage en baisse"]
 
 
-def table(ident, columns, selectable=False):
-    return dash_table.DataTable(
-        id=ident,
-        columns=columns,
-        data=[],
-        page_action="custom",
-        page_current=0,
-        page_size=25,
-        page_count=0,
-        row_selectable="single" if selectable else False,
-        selected_row_ids=[],
-        markdown_options={"link_target": "_self"},
-        style_table={"overflowX": "auto"},
-        style_cell={
-            "textAlign": "left",
-            "whiteSpace": "normal",
-            "height": "auto",
-            "padding": "12px",
-            "fontFamily": "inherit",
-            "fontSize": "13px",
-        },
-        style_header={"fontWeight": "600", "backgroundColor": "#f4f5f6"},
+def scope(search):
+    query = parse_qs((search or "").lstrip("?"))
+    try:
+        sid = int(query.get("software", ["0"])[0])
+        oid = int(query.get("organization", ["0"])[0])
+    except ValueError:
+        return 0, 0, ""
+    kind = query.get("signal", [""])[0]
+    return sid, oid, kind if kind in KINDS else ""
+
+
+def link(label, **params):
+    return dcc.Link(
+        label,
+        href="/opportunities" + ("?" + urlencode(params) if params else ""),
+        className="op-link",
     )
 
 
-def layout(dataset):
-    heading = html.Header(
-        [
-            html.Div("ANALYSE / AIDE À LA REVUE SAM", className="eyebrow"),
-            html.H1("Opportunités"),
-            html.P(
-                "Des usages à examiner pour préparer les réaffectations et les renouvellements."
-            ),
-        ]
-    )
+def layout(dataset, search=""):
     if dataset is None:
         return html.Div(
             [
-                heading,
-                html.P(
-                    "Aucune collecte analytique disponible. Lancez une collecte complète dans Sources."
+                html.H1("Opportunités"),
+                html.Div(
+                    [
+                        html.H2("Aucune analyse disponible"),
+                        html.P("Collectez les données du DW pour examiner les usages."),
+                        dcc.Link("Ouvrir Sources", href="/sources", className="nx-button"),
+                    ],
+                    className="op-empty nx-card",
                 ),
             ]
         )
+    sid, oid, kind = scope(search)
+    name = next((s["name"] for s in dataset.software if s["id"] == sid), "")
+    organization = next((o["name"] for o in dataset.organizations if o["id"] == oid), "")
+    crumbs = [link("Opportunités")]
+    if sid:
+        crumbs += [html.Span("/"), link(name, software=sid)]
+    if oid:
+        crumbs += [html.Span("/"), html.Span(organization)]
+    title = "Opportunités" if not sid else kind if oid and kind else name
     return html.Div(
         [
-            heading,
-            html.P(
-                f"28 derniers jours jusqu’au {dataset.end:%d/%m/%Y}. Les baisses comparent deux périodes de 28 jours."
-            ),
-            html.P(
-                "Pistes à valider par le SAM. Une installation signalée n’équivaut pas à une licence récupérable."
-            ),
-            html.Div(
+            html.Nav(crumbs, className="op-breadcrumb", **{"aria-label": "Fil d’Ariane"}),
+            html.Header(
                 [
                     html.Div(
                         [
-                            html.Label("Logiciel", htmlFor="op-search"),
-                            dcc.Input(
-                                id="op-search",
-                                placeholder="Rechercher un logiciel",
-                                debounce=True,
-                                className="nx-input",
+                            html.H1(title),
+                            html.P(
+                                "Repérez les usages à examiner avant une réaffectation ou un renouvellement."
                             ),
                         ]
                     ),
+                    html.A("Exporter en CSV", id="op-export", className="op-export"),
+                ],
+                className="op-header",
+            ),
+            html.Div(
+                [
+                    html.Span("Période observée"),
+                    html.Strong(f"28 jours au {dataset.end:%d/%m/%Y}"),
+                    html.Span("Collecte complète requise"),
+                ],
+                className="op-period",
+            ),
+            html.Div(id="op-summary", className="op-summary"),
+            html.Section(
+                [
                     html.Div(
                         [
-                            html.Label("Entité"),
-                            dcc.Dropdown(
-                                id="op-org",
-                                options=[{"label": "Toutes les entités", "value": 0}]
-                                + [
-                                    {"label": o["name"], "value": o["id"]}
-                                    for o in dataset.organizations
+                            html.Div(
+                                [
+                                    html.Label("Logiciel", htmlFor="op-search"),
+                                    dcc.Input(
+                                        id="op-search",
+                                        placeholder="Rechercher un logiciel…",
+                                        debounce=True,
+                                        className="nx-input",
+                                        value="",
+                                    ),
+                                ]
+                            ),
+                            html.Div(
+                                [
+                                    html.Label("Entité"),
+                                    dcc.Dropdown(
+                                        id="op-org",
+                                        options=[{"label": "Toutes les entités", "value": 0}]
+                                        + [
+                                            {"label": o["name"], "value": o["id"]}
+                                            for o in dataset.organizations
+                                        ],
+                                        value=oid,
+                                        clearable=False,
+                                        searchable=False,
+                                        className="nx-select",
+                                    ),
+                                ]
+                            ),
+                            html.Div(
+                                [
+                                    html.Label("Signal"),
+                                    dcc.Dropdown(
+                                        id="op-kind",
+                                        options=[{"label": "Tous les signaux", "value": ""}]
+                                        + [{"label": s, "value": s} for s in KINDS],
+                                        value=kind,
+                                        clearable=False,
+                                        searchable=False,
+                                        className="nx-select",
+                                    ),
+                                ]
+                            ),
+                        ],
+                        className="op-filters",
+                        style={"display": "none"} if oid and kind else {},
+                    ),
+                    html.Div(id="op-table", className="op-table table-wrap"),
+                    html.Div(
+                        [
+                            html.Span(id="op-count"),
+                            html.Div(
+                                [
+                                    html.Button(
+                                        "Précédent",
+                                        id="op-prev",
+                                        n_clicks=0,
+                                        className="op-page-button",
+                                    ),
+                                    html.Span(id="op-page-label"),
+                                    html.Button(
+                                        "Suivant",
+                                        id="op-next",
+                                        n_clicks=0,
+                                        className="op-page-button",
+                                    ),
                                 ],
-                                value=0,
-                                clearable=False,
+                                className="op-pages",
                             ),
-                        ]
-                    ),
-                    html.Div(
-                        [
-                            html.Label("Signal"),
-                            dcc.Dropdown(
-                                id="op-kind",
-                                options=[{"label": "Tous les signaux", "value": ""}]
-                                + [{"label": s, "value": s} for s in KINDS],
-                                value="",
-                                clearable=False,
-                            ),
-                        ]
+                        ],
+                        className="op-pagination",
                     ),
                 ],
-                className="op-filters",
+                className="op-panel",
             ),
-            html.Div(
-                [
-                    html.P(id="op-count"),
-                    html.A("Exporter les résultats filtrés (CSV)", id="op-export"),
-                ],
-                className="op-toolbar",
-            ),
-            html.Section(
-                table(
-                    "op-table",
-                    [
-                        {
-                            "name": label,
-                            "id": key,
-                            **({"presentation": "markdown"} if key == "analysis" else {}),
-                        }
-                        for label, key in [
-                            ("Logiciel", "software"),
-                            ("Entité", "organization"),
-                            ("Signal", "kind"),
-                            ("Installations", "installations"),
-                            ("Observation", "evidence"),
-                            ("Couverture", "coverage"),
-                            ("Analyse", "analysis"),
-                        ]
-                    ],
-                    True,
-                ),
-                className="nx-card",
-            ),
-            html.H2("Installations concernées"),
+            dcc.Store(id="op-page", data=0),
             html.P(
-                "Sélectionnez une ligne pour consulter les installations, 25 par page.",
-                id="op-detail-count",
-            ),
-            html.Section(
-                table(
-                    "op-details",
-                    [
-                        {"name": a, "id": b}
-                        for a, b in [
-                            ("Installation", "id"),
-                            ("Machine", "machine_id"),
-                            ("Installée le", "installed_on"),
-                        ]
-                    ],
-                ),
-                className="nx-card",
+                "Pistes à valider par le SAM. Les volumes affichés représentent des installations, pas des licences récupérables.",
+                className="op-footnote",
             ),
             html.Details(
                 [
-                    html.Summary("Critères de détection"),
+                    html.Summary("Comprendre les critères"),
                     html.P(
-                        "Sans usage : 0 jour actif. Occasionnel : 1 à 2 jours actifs sur 28. Installation antérieure à la période et couverture complète obligatoires. Baisse : au moins 30 % entre deux périodes de 28 jours entièrement observées, sur les mêmes installations. Les signaux ne s’additionnent pas en licences récupérables."
+                        "Sans usage : aucun jour actif sur 28. Occasionnel : 1 à 2 jours actifs sur 28. Les installations trop récentes et les entités avec une couverture incomplète sont exclues."
                     ),
-                ]
+                    html.P(
+                        "Baisse : au moins 30 % entre deux périodes de 28 jours entièrement observées, sur les mêmes installations. Le contexte métier reste à examiner."
+                    ),
+                ],
+                className="op-method",
             ),
         ]
     )
 
 
-def summary_rows(page):
-    rows = []
-    for row in page["rows"]:
-        row = dict(row)
-        query = urlencode(
-            {
-                "software": row["software_id"],
-                "organization": row["organization_id"],
-                "start": row["start"],
-                "end": row["end"],
-            }
+def html_table(headers, rows):
+    if not rows:
+        return html.Div(
+            [
+                html.H3("Aucun résultat pour ce périmètre"),
+                html.P("Modifiez les filtres ou vérifiez la couverture des observations."),
+            ],
+            className="op-empty",
         )
-        row["id"] = f"{row['software_id']}:{row['organization_id']}:{row['kind']}"
-        row["analysis"] = f"[Voir l’analyse](/?{query})"
-        row["installations"] = row["count"]
-        rows.append(row)
-    return rows
+    return html.Table(
+        [
+            html.Thead(html.Tr([html.Th(h) for h in headers])),
+            html.Tbody([html.Tr([html.Td(cell) for cell in row]) for row in rows]),
+        ]
+    )
+
+
+def render(view, search, org, kind, query, page):
+    sid, oid, signal = scope(query)
+    filtered = [r for r in view.filtered(search, org, kind) if not sid or r["software_id"] == sid]
+    summary = []
+    for label in KINDS:
+        matching = [r for r in filtered if r["kind"] == label]
+        value = (
+            sum(r["count"] or 0 for r in matching)
+            if label != KINDS[2]
+            else len({(r["software_id"], r["organization_id"]) for r in matching})
+        )
+        unit = "installations" if label != KINDS[2] else "périmètres"
+        summary.append(
+            html.Div(
+                [html.Span(label), html.Strong(f"{value:,}".replace(",", " ")), html.Small(unit)],
+                className="op-stat",
+            )
+        )
+    rows = []
+    if oid and signal:
+        result = view.page(page=page, detail=(sid, oid, signal))
+        rows = [
+            [str(i["id"]), str(i["machine_id"]), str(i["installed_on"])] for i in result["rows"]
+        ]
+        headers = ["Installation", "Machine", "Date d’installation"]
+        total = result["total"]
+        page = result["page"]
+        unit = "installations"
+    elif sid:
+        total = len(filtered)
+        page = min(max(0, page), max(0, (total - 1) // 25))
+        unit = "signaux"
+        headers = ["Entité", "Signal", "Volume", "Observation", "Détail"]
+        for r in filtered[page * 25 : (page + 1) * 25]:
+            analysis = "/?" + urlencode(
+                {
+                    "software": sid,
+                    "organization": r["organization_id"],
+                    "start": r["start"],
+                    "end": r["end"],
+                }
+            )
+            action = (
+                link(
+                    "Voir les installations",
+                    software=sid,
+                    organization=r["organization_id"],
+                    signal=r["kind"],
+                )
+                if r["count"] is not None
+                else dcc.Link("Voir la courbe", href=analysis, className="op-link")
+            )
+            rows.append(
+                [
+                    r["organization"],
+                    html.Span(r["kind"], className="op-signal"),
+                    str(r["count"]) if r["count"] is not None else "—",
+                    html.Div([html.P(r["evidence"]), html.Small("Couverture : " + r["coverage"])]),
+                    action,
+                ]
+            )
+    else:
+        groups = {}
+        for r in filtered:
+            group = groups.setdefault(
+                r["software_id"],
+                {"name": r["software"], "zero": 0, "low": 0, "decline": 0, "orgs": set()},
+            )
+            group["orgs"].add(r["organization_id"])
+            if r["kind"] == KINDS[0]:
+                group["zero"] += r["count"]
+            elif r["kind"] == KINDS[1]:
+                group["low"] += r["count"]
+            else:
+                group["decline"] += 1
+        ordered = sorted(
+            groups.items(), key=lambda pair: (-pair[1]["zero"], -pair[1]["low"], pair[1]["name"])
+        )
+        total = len(ordered)
+        page = min(max(0, page), max(0, (total - 1) // 25))
+        unit = "logiciels"
+        headers = [
+            "Logiciel",
+            "Sans usage",
+            "Usage occasionnel",
+            "Entités en baisse",
+            "Périmètre",
+            "",
+        ]
+        for software, g in ordered[page * 25 : (page + 1) * 25]:
+            rows.append(
+                [
+                    html.Strong(g["name"]),
+                    g["zero"],
+                    g["low"],
+                    g["decline"],
+                    f"{len(g['orgs'])} entité(s)",
+                    link("Examiner", software=software),
+                ]
+            )
+    pages = max(1, ceil(total / 25))
+    count = f"{total} {unit} · {view.excluded} installations exclues pour couverture insuffisante"
+    return (
+        summary,
+        html_table(headers, rows),
+        count,
+        f"{page + 1} / {pages}",
+        page == 0,
+        page + 1 >= pages,
+    )
 
 
 def register(app, provider):
     @app.callback(
-        Output("op-table", "page_current"),
+        Output("op-page", "data"),
+        Input("op-prev", "n_clicks"),
+        Input("op-next", "n_clicks"),
         Input("op-search", "value"),
         Input("op-org", "value"),
         Input("op-kind", "value"),
+        State("op-page", "data"),
     )
-    def reset_page(*filters):
+    def page(previous, following, search, org, kind, current):
+        if ctx.triggered_id == "op-prev":
+            return max(0, (current or 0) - 1)
+        if ctx.triggered_id == "op-next":
+            return (current or 0) + 1
         return 0
 
-    @app.callback(Output("op-table", "selected_row_ids"), Input("op-table", "data"))
-    def reset_selection(data):
-        return []
-
     @app.callback(
-        Output("op-table", "data"),
-        Output("op-table", "page_count"),
+        Output("op-summary", "children"),
+        Output("op-table", "children"),
         Output("op-count", "children"),
+        Output("op-page-label", "children"),
+        Output("op-prev", "disabled"),
+        Output("op-next", "disabled"),
         Output("op-export", "href"),
         Input("op-search", "value"),
         Input("op-org", "value"),
         Input("op-kind", "value"),
-        Input("op-table", "page_current"),
+        Input("op-page", "data"),
+        State("url", "search"),
         State("result", "children"),
     )
-    def update(search, org, kind, page, report):
+    def update(search, org, kind, page, query, report):
         dataset = provider(report)
         if dataset is None:
-            return [], 0, "Collecte supprimée ou indisponible.", None
+            return [], html.P("Collecte indisponible."), "", "", True, True, None
         view = OpportunityView(dataset)
-        result = view.page(search, org, kind, page)
+        sid, oid, signal = scope(query)
         key = dataset.manifest["storage"]["prefix"] + "/manifest.json"
         href = "/opportunities.csv?" + urlencode(
             {
                 "search": search or "",
                 "organization": org or 0,
                 "kind": kind or "",
+                "software": sid,
                 "collection": key,
             }
         )
-        return (
-            summary_rows(result),
-            ceil(result["total"] / 25),
-            f"{result['total']} signaux · 25 par page. {view.excluded} installations exclues pour couverture insuffisante.",
-            href,
-        )
-
-    @app.callback(Output("op-details", "page_current"), Input("op-table", "selected_row_ids"))
-    def reset_detail(selection):
-        return 0
-
-    @app.callback(
-        Output("op-details", "data"),
-        Output("op-details", "page_count"),
-        Output("op-detail-count", "children"),
-        Input("op-table", "selected_row_ids"),
-        Input("op-details", "page_current"),
-        State("result", "children"),
-    )
-    def detail(selection, page, report):
-        if not selection:
-            return [], 0, "Sélectionnez un signal pour consulter ses installations."
-        dataset = provider(report)
-        if dataset is None:
-            return [], 0, "Collecte supprimée ou indisponible."
-        try:
-            sid, oid, kind = selection[0].split(":", 2)
-            scope = (int(sid), int(oid), kind)
-        except (ValueError, TypeError):
-            return [], 0, "Sélection invalide."
-        if kind == KINDS[2]:
-            return [], 0, "Signal agrégé de baisse : consultez la courbe dans Analyse."
-        result = OpportunityView(dataset).page(page=page, detail=scope)
-        return (
-            result["rows"],
-            ceil(result["total"] / 25),
-            f"{result['total']} installations concernées · 25 par page.",
-        )
+        return (*render(view, search, org, kind, query, page or 0), href)
 
     @app.server.get("/opportunities.csv")
     def export():
@@ -283,16 +376,20 @@ def register(app, provider):
             return "Collection invalide", 400
         try:
             org = int(request.args.get("organization", 0))
+            sid = int(request.args.get("software", 0))
             dataset = load_dataset(client_from_env(), os.environ["NEXORA_S3_BUCKET"], key)
         except (ValueError, ClientError):
             return "Collection indisponible", 404
+        view = OpportunityView(dataset)
+        if sid:
+            view.rows = [r for r in view.rows if r["software_id"] == sid]
         search, kind = request.args.get("search", ""), request.args.get("kind", "")
 
         def chunks():
             buffer = io.StringIO()
             writer = csv.writer(buffer)
             yield "\ufeff"
-            for row in OpportunityView(dataset).export_rows(search, org, kind):
+            for row in view.export_rows(search, org, kind):
                 writer.writerow(
                     [
                         "'" + v if isinstance(v, str) and v.startswith(("=", "+", "-", "@")) else v

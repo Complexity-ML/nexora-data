@@ -1,6 +1,7 @@
 """Single-process local work queue; credentials never enter browser state."""
 
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Lock
@@ -10,7 +11,8 @@ from ..ingestion.catalog import scan
 from ..ingestion.connection import source_connection
 from ..ingestion.extract import extract
 from ..ingestion.selection import Selection
-from ..storage.minio import publish
+from ..storage.minio import client_from_env, publish
+from ..storage.refresh import refresh
 from .datasets import activate_collection
 
 
@@ -57,7 +59,14 @@ class Explorer:
                     }
                 selection = Selection.model_validate(payload)
                 if self.output is None:
-                    result = publish(conn, selection)
+                    if kind == "collect" and all(
+                        item.row_limit is None for item in selection.objects
+                    ):
+                        result = refresh(
+                            conn, selection, client_from_env(), os.environ["NEXORA_S3_BUCKET"]
+                        )
+                    else:
+                        result = publish(conn, selection)
                     result["analysis_updated"] = activate_collection(result) is not None
                     if catalog is not None:
                         result["catalog"] = catalog

@@ -11,6 +11,7 @@ from ..analytics.usage import UsageDataset
 from ..ingestion.catalog import scan
 from ..ingestion.connection import source_connection
 from ..ingestion.selection import Selection
+from ..storage.coordination import synchronized
 from ..storage.minio import client_from_env, publish
 
 TABLES = {
@@ -25,6 +26,7 @@ TABLES = {
 POINTER = "bronze/demo-enterprise/current.json"
 
 
+@synchronized
 def load_dataset(client, bucket, manifest_key):
     manifest = json.loads(client.get_object(Bucket=bucket, Key=manifest_key)["Body"].read())
     objects = {o["name"]: o for o in manifest["objects"]}
@@ -34,13 +36,24 @@ def load_dataset(client, bucket, manifest_key):
     prefix = manifest_key.removesuffix("manifest.json")
     for name in TABLES:
         obj = objects[name]
-        if not obj["key"].startswith(prefix) or obj["bytes"] > 100_000_000:
-            raise ValueError("Objet de démonstration invalide")
-        content = client.get_object(Bucket=bucket, Key=obj["key"])["Body"].read()
-        table = pq.read_table(io.BytesIO(content))
-        if table.num_rows != obj["rows"]:
-            raise ValueError("Snapshot incomplet")
-        tables[name] = table.to_pylist()
+        parts = obj.get("parts", [obj])
+        rows = []
+        allowed = f"bronze/{manifest['source_label']}/blocks/"
+        for part in parts:
+            key = part["key"]
+            if not (
+                key.startswith(prefix)
+                or (manifest.get("manifest_version") == 2 and key.startswith(allowed))
+            ) or ".." in key.split("/"):
+                raise ValueError("Objet de démonstration invalide")
+            content = client.get_object(Bucket=bucket, Key=key)["Body"].read()
+            table = pq.read_table(io.BytesIO(content))
+            if table.num_rows != part["rows"]:
+                raise ValueError("Collecte incomplète")
+            rows.extend(table.to_pylist())
+        if len(rows) != obj["rows"]:
+            raise ValueError("Collecte incomplète")
+        tables[name] = rows
     return UsageDataset(tables, manifest)
 
 
@@ -164,6 +177,7 @@ def list_extractions(client=None, bucket=None):
     return results
 
 
+@synchronized
 def delete_extraction(manifest_key, client=None, bucket=None):
     """Delete exactly one published extraction; never modify the SQL source."""
     import re
@@ -180,7 +194,11 @@ def delete_extraction(manifest_key, client=None, bucket=None):
         raise ValueError("Provenance invalide")
     # Remove references before any data, so a partial failure cannot expose stale analysis.
     pointer_key = "/".join(manifest_key.split("/")[:2]) + "/current.json"
-    for pointer in {POINTER, pointer_key}:
+    for pointer in {
+        POINTER,
+        pointer_key,
+        "/".join(manifest_key.split("/")[:2]) + "/latest-full.json",
+    }:
         try:
             value = json.loads(client.get_object(Bucket=bucket, Key=pointer)["Body"].read())
         except ClientError as exc:
@@ -202,6 +220,25 @@ def delete_extraction(manifest_key, client=None, bucket=None):
         )
         if result.get("Errors"):
             raise RuntimeError("Suppression incomplète ; réessayez.")
+    shared = {p["key"] for obj in manifest["objects"] for p in obj.get("parts", [])}
+    if shared:
+        live = set()
+        source_prefix = f"bronze/{manifest['source_label']}/"
+        for page in client.get_paginator("list_objects_v2").paginate(
+            Bucket=bucket, Prefix=source_prefix
+        ):
+            for obj in page.get("Contents", []):
+                if obj["Key"].endswith("/manifest.json") and obj["Key"] != manifest_key:
+                    other = json.loads(
+                        client.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read()
+                    )
+                    live.update(
+                        p["key"] for entry in other["objects"] for p in entry.get("parts", [])
+                    )
+        for key in shared - live:
+            if not key.startswith(source_prefix + "blocks/"):
+                raise ValueError("Fragment invalide")
+            client.delete_object(Bucket=bucket, Key=key)
     # Keep the manifest until the files are removed, allowing retries after failure.
     client.delete_object(Bucket=bucket, Key=manifest_key)
     return len(keys)

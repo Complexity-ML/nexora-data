@@ -31,8 +31,11 @@ def source_connection(value=None):
     try:
         with engine.connect() as conn:
             if engine.dialect.name == "postgresql":
+                conn = conn.execution_options(isolation_level="REPEATABLE READ")
                 conn.exec_driver_sql("SET TRANSACTION READ ONLY")
                 conn.exec_driver_sql("SET LOCAL statement_timeout = '60s'")
+            if engine.dialect.name == "mssql":
+                conn = conn.execution_options(isolation_level="SNAPSHOT")
             # Always rollback; SQL Server must use a SELECT-only database principal.
             yield conn
             conn.rollback()
