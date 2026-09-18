@@ -93,3 +93,21 @@ docker compose exec -T app python < scripts/smoke_stack.py
 ```
 
 Ce test appelle les endpoints Dash, scanne la base fictive, extrait 100 observations dans MinIO, relit le Parquet et vérifie son empreinte. Il crée une extraction de test dans le bucket et nécessite le mode démonstration.
+
+## Analyse et projection
+
+En mode démonstration, le premier démarrage publie un snapshot complet des sept tables du jeu fictif dans MinIO. Les redémarrages relisent ce même snapshot : l’accueil ne nécessite aucune collecte manuelle. La page Sources permet de lancer des extractions supplémentaires ; elles apparaissent dans Extractions et ne remplacent pas automatiquement le snapshot analytique.
+
+L’accueil calcule le nombre d’utilisateurs actifs distincts par jour et logiciel, avec filtres par entité et période inclusive. Une journée sans couverture complète du périmètre est absente de la courbe, et non remplacée par zéro. Le nombre d’installations est mesuré à la fin de la période choisie.
+
+La projection produit sept valeurs quotidiennes après cette date. Elle ajuste une tendance linéaire pour chaque jour de semaine sur au plus 56 jours historiques, avec au moins quatre observations de chaque jour de semaine et une dernière journée complète. Les valeurs sont bornées entre zéro et la population disposant du logiciel à la date d’origine. Cette hypothèse de population constante ne représente pas une capacité contractuelle. Une période trop courte ou incomplète affiche « Données insuffisantes ».
+
+L’erreur moyenne absolue à J+7 est évaluée sur au plus 14 dates historiques : chaque estimation utilise uniquement les données connues sept jours avant sa cible, y compris la population installée à cette date. La référence affiche l’erreur obtenue en reprenant l’usage de la semaine précédente. Aucune supériorité sur cette référence n’est supposée et aucun intervalle de confiance non calibré n’est affiché.
+
+Cette version calcule les indicateurs avec Python à partir d’un snapshot Parquet cohérent. Elle ne fournit pas encore de pipeline Silver/Gold PySpark. Pour une source réelle, un adaptateur analytique devra définir les correspondances entre les champs et les observations d’usage ; le scanner seul ne peut pas les déduire.
+
+Vérification de l’accueil, des filtres et de la navigation par HTTP :
+
+```sh
+docker compose exec -T app python < scripts/smoke_analytics.py
+```

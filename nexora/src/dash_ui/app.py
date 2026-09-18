@@ -7,6 +7,7 @@ from pathlib import Path
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from ..services.explorer import Explorer
+from . import dashboard, extractions
 
 
 def metadata_table(obj):
@@ -61,13 +62,13 @@ def metadata_table(obj):
     )
 
 
-def create_app(source_url=None, output=None, demo=False):
+def create_app(source_url=None, output=None, demo=False, dataset=None):
     source_url = source_url or os.environ.get("NEXORA_SOURCE_URL")
     explorer = Explorer(source_url, output)
     atexit.register(explorer.close)
     app = Dash(
         __name__,
-        title="Nexora · Explorateur SQL",
+        title="Nexora · Usage et projection",
         assets_folder=str(Path(__file__).parent / "assets"),
     )
     app.explorer = explorer
@@ -77,8 +78,14 @@ def create_app(source_url=None, output=None, demo=False):
                 [
                     html.Div("nexora", className="brand"),
                     html.Div("DATA WORKSPACE", className="eyebrow"),
-                    html.Div("01  Explorer la source", className="nav-active"),
-                    html.Div("02  Bronze Parquet", className="nav-muted"),
+                    dcc.Link("Analyse", href="/", id="nav-dashboard", className="nav-active"),
+                    dcc.Link("Sources", href="/sources", id="nav-sources", className="nav-muted"),
+                    dcc.Link(
+                        "Extractions",
+                        href="/extractions",
+                        id="nav-extractions",
+                        className="nav-muted",
+                    ),
                     html.Div("Scanner SQL\nExtraction Parquet", className="aside-footer"),
                 ]
             ),
@@ -91,7 +98,7 @@ def create_app(source_url=None, output=None, demo=False):
                                     html.Div("SOURCE / EXPLORATION", className="eyebrow"),
                                     html.H1("Explorateur SQL"),
                                     html.P(
-                                        "Explorez la structure SQL, choisissez vos champs et préparez votre Bronze."
+                                        "Consultez la structure SQL et collectez les données vers MinIO."
                                     ),
                                 ]
                             ),
@@ -121,10 +128,9 @@ def create_app(source_url=None, output=None, demo=False):
                             dcc.Input(
                                 id="limit",
                                 className="nx-input",
-                                type="number",
-                                min=1,
-                                step=1,
-                                value=None,
+                                type="text",
+                                inputMode="numeric",
+                                value="",
                                 placeholder="Sans limite",
                             ),
                             html.Div(
@@ -177,6 +183,54 @@ def create_app(source_url=None, output=None, demo=False):
         ],
         className="shell nx-app",
     )
+
+    sources = app.layout.children[1]
+    sources.id = "page-sources"
+    sources.style = {"display": "none"}
+    # All pages remain mounted so background collection can finish during navigation.
+    app.layout.children[1] = html.Main(
+        [
+            dcc.Location(id="url", refresh=False),
+            html.Div(dashboard.layout(dataset), id="page-dashboard", className="dashboard-page"),
+            html.Div(
+                sources.children,
+                id="page-sources",
+                className="sources-page",
+                style={"display": "none"},
+            ),
+            html.Div(
+                extractions.layout(),
+                id="page-extractions",
+                className="extractions-page",
+                style={"display": "none"},
+            ),
+        ]
+    )
+    dashboard.register(app, dataset)
+
+    @app.callback(
+        Output("page-dashboard", "style"),
+        Output("page-sources", "style"),
+        Output("page-extractions", "style"),
+        Output("nav-dashboard", "className"),
+        Output("nav-sources", "className"),
+        Output("nav-extractions", "className"),
+        Input("url", "pathname"),
+    )
+    def route(path):
+        index = {"/sources": 1, "/extractions": 2}.get(path, 0)
+        return (
+            *[{} if i == index else {"display": "none"} for i in range(3)],
+            *["nav-active" if i == index else "nav-muted" for i in range(3)],
+        )
+
+    @app.callback(
+        Output("extraction-history", "children"),
+        Input("url", "pathname"),
+        Input("refresh-extractions", "n_clicks"),
+    )
+    def extraction_history(path, clicks):
+        return extractions.history() if path == "/extractions" else no_update
 
     @app.callback(
         Output("catalog-summary", "children"),
@@ -265,6 +319,10 @@ def create_app(source_url=None, output=None, demo=False):
             if ctx.triggered_id == "scan":
                 kind, payload = "scan", None
             else:
+                if limit in (None, ""):
+                    limit = None
+                elif isinstance(limit, str) and limit.strip().isascii() and limit.strip().isdigit():
+                    limit = int(limit.strip())
                 if limit is not None and (type(limit) is not int or limit < 1):
                     return (
                         no_update,
@@ -320,7 +378,12 @@ def main():
         source = os.environ.get("NEXORA_SOURCE_URL")
         if not source:
             parser.error("Définir NEXORA_SOURCE_URL ou utiliser --demo.")
-    create_app(source, demo=args.demo).run(host="127.0.0.1", port=args.port, debug=False)
+    from ..services.datasets import ensure_demo
+
+    dataset = ensure_demo(source) if args.demo else None
+    create_app(source, demo=args.demo, dataset=dataset).run(
+        host="127.0.0.1", port=args.port, debug=False
+    )
 
 
 if __name__ == "__main__":

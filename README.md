@@ -1,8 +1,12 @@
 # nexora-data
 
-Nexora-data est un outil Python/Dash d’exploration de bases SQL et d’extraction de données Parquet vers MinIO.
+Nexora-data est une application Python/Dash d’analyse de l’usage logiciel, avec collecte SQL et stockage Parquet dans MinIO.
 
 ## Fonctionnalités
+
+- Dashboard d’usage avec filtres par logiciel, entité et période.
+- Historique, couverture des observations et projection statistique J+7.
+- Historique des extractions persistées dans MinIO.
 
 - Scan des schémas, tables, vues et métadonnées des champs.
 - Consultation des types, clés et relations déclarées.
@@ -21,6 +25,8 @@ docker compose up -d --build
 - Console MinIO : http://127.0.0.1:9001
 
 Les identifiants locaux sont générés dans `.env`, exclu de Git. Le script refuse d’écraser ce fichier.
+
+L’accueil affiche automatiquement les résultats du jeu de données fictif. Le scanner est accessible dans **Sources**, et les collectes publiées dans **Extractions**.
 
 Les Parquet et leurs manifestes sont stockés dans le bucket `nexora-data`, sous `bronze/<source>/<extraction>/`. Les volumes Docker conservent les données entre les redémarrages.
 

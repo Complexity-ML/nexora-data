@@ -13,3 +13,9 @@
   .nx-app > aside { width: 190px; padding: 28px 18px; }
   .nx-app > main { padding: 24px; }
 }
+.nx-app aside a { display:block;text-decoration:none; }
+.nx-app aside .nav-active { margin-top:0;color:#fff; }
+.nx-app aside #nav-dashboard { margin-top:42px; }
+.nx-app aside a:hover { background:#294244;border-radius:6px;color:#fff; }
+.nx-app .sources-page > header, .nx-app .extractions-page > div > header { display:flex;align-items:center;justify-content:space-between;gap:24px; }
+.nx-app aside .nav-active, .nx-app aside .nav-muted { padding:13px 12px;min-height:44px;margin-bottom:6px; }
