@@ -8,7 +8,8 @@
 .dashboard-page .metric-label { color:var(--nx-muted);font-size:13px; }
 .dashboard-page .metric-value { font-size:clamp(26px,2.4vw,38px);font-weight:600;letter-spacing:-1px;margin:12px 0 7px; }
 .dashboard-page .metric-detail { color:var(--nx-muted);font-size:12px; }
-.dashboard-page .chart-card { margin-bottom:22px; }
+.dashboard-page .chart-card { margin-bottom:22px; display:flex; flex-direction:column; }
+.dashboard-page .usage-chart { flex:0 0 420px; min-height:420px; min-width:0; }
 .dashboard-page .quality-note { font-size:12px;color:#786036;padding:12px 0 0; }
 .dashboard-page .dashboard-bottom { display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:22px; }
 .dashboard-page details { margin-top:16px;color:var(--nx-muted);font-size:13px; }

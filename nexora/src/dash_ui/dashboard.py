@@ -165,6 +165,8 @@ def layout(dataset):
                     html.H2("Utilisateurs actifs quotidiens"),
                     dcc.Graph(
                         id="usage-chart",
+                        className="usage-chart",
+                        style={"height": "420px", "width": "100%", "minWidth": 0},
                         figure=figure,
                         responsive=True,
                         config={"displaylogo": False, "responsive": True},

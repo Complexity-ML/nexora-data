@@ -20,4 +20,35 @@
 .nx-app .sources-page > header, .nx-app .extractions-page > div > header { display:flex;align-items:center;justify-content:space-between;gap:24px; }
 .nx-app aside .nav-active, .nx-app aside .nav-muted { padding:13px 12px;min-height:44px;margin-bottom:6px; }
 
-.nx-app .brand-logo { display: block; width: 100%; max-width: 180px; height: auto; }
+
+/* Original Nexora mark, reused from Nexora-Server. */
+.nx-app .brand { display: flex; align-items: center; gap: 10px; }
+.nx-app .brand strong { font-size: 29px; letter-spacing: -1.5px; }
+.nx-app .logo-mark {
+  position: relative;
+  width: 27px;
+  height: 27px;
+}
+.nx-app .logo-mark span {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 2px solid #8bb9e6;
+  border-radius: 3px;
+  transform: rotate(30deg) skew(-8deg);
+}
+.nx-app .logo-mark span:nth-child(1) {
+  top: 0;
+  left: 6px;
+}
+.nx-app .logo-mark span:nth-child(2) {
+  top: 7px;
+  left: 1px;
+  opacity: 0.8;
+}
+.nx-app .logo-mark span:nth-child(3) {
+  top: 10px;
+  left: 11px;
+  opacity: 0.6;
+}
+.nx-app .logo-mark{flex-shrink:0}

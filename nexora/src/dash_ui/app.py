@@ -78,11 +78,14 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
             html.Aside(
                 [
                     html.Div(
-                        html.Img(
-                            src=app.get_asset_url("nexora-logo.svg"),
-                            alt="Nexora",
-                            className="brand-logo",
-                        ),
+                        [
+                            html.Div(
+                                [html.Span(), html.Span(), html.Span()],
+                                className="logo-mark",
+                                **{"aria-hidden": "true"},
+                            ),
+                            html.Strong("nexora"),
+                        ],
                         className="brand",
                     ),
                     html.Div("DATA WORKSPACE", className="eyebrow"),
