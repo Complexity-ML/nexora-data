@@ -84,7 +84,7 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
                                 className="logo-mark",
                                 **{"aria-hidden": "true"},
                             ),
-                            html.Strong("nexora"),
+                            html.Strong("Nexora"),
                         ],
                         className="brand",
                     ),
