@@ -7,11 +7,11 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.exc import OperationalError
 
-from nexora_data.cli import main
-from nexora_data.ingestion.catalog import scan
-from nexora_data.ingestion.connection import source_connection
-from nexora_data.ingestion.extract import extract
-from nexora_data.ingestion.selection import Selection
+from nexora.src.cli import main
+from nexora.src.ingestion.catalog import scan
+from nexora.src.ingestion.connection import source_connection
+from nexora.src.ingestion.extract import extract
+from nexora.src.ingestion.selection import Selection
 
 
 @pytest.fixture
@@ -135,7 +135,7 @@ def test_invalid_selection_and_missing_objects(source, tmp_path):
 
 
 def test_failure_does_not_publish_partial_run(source, tmp_path, monkeypatch):
-    import nexora_data.ingestion.extract as module
+    import nexora.src.ingestion.extract as module
 
     def fail(*args, **kwargs):
         raise RuntimeError("write failure")

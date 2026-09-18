@@ -35,7 +35,7 @@ Le POC initial utilisera des méthodes statistiques sans entraînement ML. Un ar
 ## Organisation initiale
 
 ```text
-src/nexora_data/
+nexora/src/
   ingestion/       # Connexion SQL, catalogue des métadonnées, extraction Parquet
   transformations/# Bronze → Silver → Gold
   analytics/      # Indicateurs d’usage et qualité

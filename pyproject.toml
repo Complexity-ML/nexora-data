@@ -14,10 +14,13 @@ postgres = ["psycopg[binary]>=3.2,<4"]
 mssql = ["pyodbc>=5.2,<6"]
 
 [project.scripts]
-nexora-data = "nexora_data.cli:main"
+nexora-data = "nexora.src.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["nexora"]
