@@ -8,8 +8,8 @@ from sqlalchemy.engine import make_url
 
 
 @contextmanager
-def source_connection():
-    value = os.environ.get("NEXORA_SOURCE_URL")
+def source_connection(value=None):
+    value = value or os.environ.get("NEXORA_SOURCE_URL")
     if not value:
         raise ValueError("Définir NEXORA_SOURCE_URL dans l’environnement.")
     url = make_url(value)

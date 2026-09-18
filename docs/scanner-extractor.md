@@ -2,7 +2,7 @@
 
 ## Installation
 
-Depuis `/Users/boris/Dev/nexora-data` :
+Depuis la racine du dépôt, dans un environnement virtuel activé :
 
 ```sh
 pip install -e .
@@ -16,8 +16,8 @@ Python 3.11 ou supérieur.
 Les données de cette démonstration sont fictives. Le script refuse d’écraser une base existante.
 
 ```sh
-python examples/create_demo.py
-export NEXORA_SOURCE_URL="sqlite:///data/demo.sqlite"
+nexora-demo
+export NEXORA_SOURCE_URL="sqlite:///data/enterprise.sqlite"
 nexora-data scan --schema main --output data/catalog.json
 nexora-data extract --selection examples/selection.json --output data/bronze
 ```
@@ -76,8 +76,28 @@ Les erreurs CLI affichent leur classe, sans traceback ni message brut du pilote 
 ## Tests
 
 ```sh
+pip install pytest ruff
 pytest -q
 ruff check .
 ```
 
 Références techniques : [réflexion SQLAlchemy](https://docs.sqlalchemy.org/en/20/core/reflection.html), [écriture Parquet avec PyArrow](https://arrow.apache.org/docs/python/parquet.html).
+
+## Interface Dash
+
+```sh
+nexora-demo
+nexora-dash --demo
+```
+
+Ouvrir `http://127.0.0.1:8051`, lancer le scan, choisir une table et ses champs, puis extraire. Pour une source configurée dans `NEXORA_SOURCE_URL`, lancer `nexora-dash` sans `--demo`. La connexion est configurée côté serveur ; elle n’est pas saisie ni renvoyée dans l’interface. Le mode démonstration ignore la connexion réelle et utilise uniquement la base fictive locale.
+
+Le scanner et l’extracteur utilisent une file locale avec un traitement à la fois. Les états de traitement sont en mémoire et disparaissent au redémarrage. L’application écoute uniquement sur la boucle locale ; cette version ne propose pas d’authentification ni d’isolation multi-utilisateur. La limite de l’extraction dans l’interface est comprise entre 1 et 1 000 000 de lignes.
+
+## Jeu de données fictif
+
+Le générateur `nexora-demo` utilise une graine fixe, des noms inventés et des identifiants synthétiques. Par défaut : 4 entités, 6 logiciels, 240 utilisateurs, 240 machines, 720 installations et 90 jours du 20 juin au 17 septembre 2026. Les paramètres `--days`, `--users`, `--seed` et `--output` permettent de produire un autre fichier.
+
+Sept tables : `organizations`, `software`, `users`, `machines`, `installations`, `collection_coverage` et `usage_observations`. Deux vues de lecture : `installation_inventory` et `observed_usage`. Les clés étrangères sont déclarées.
+
+Les observations représentent une durée d’utilisation quotidienne par installation. Les jours manquants sont explicités dans `collection_coverage`. Les données comprennent une variation semaine/week-end, une hausse et une baisse d’usage, un déploiement au cours de la période et des installations sans activité. Ce schéma sert aux tests ; il ne reproduit pas le schéma de Flexera.

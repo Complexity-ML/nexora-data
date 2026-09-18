@@ -4,6 +4,7 @@ Nexora-data est un outil Python d’exploration de bases SQL et d’extraction d
 
 ## Fonctionnalités
 
+- Interface web Python/Dash pour explorer la source et lancer les extractions.
 - Découverte des schémas, tables, vues et métadonnées des champs.
 - Consultation des types, clés et relations déclarées.
 - Sélection des tables et colonnes à extraire.
@@ -18,6 +19,15 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
+
+## Démonstration
+
+```sh
+nexora-demo
+nexora-dash --demo
+```
+
+Interface locale : http://127.0.0.1:8051. Le générateur crée une base SQLite fictive de 90 jours ; il refuse d’écraser une base existante.
 
 ## Utilisation
 

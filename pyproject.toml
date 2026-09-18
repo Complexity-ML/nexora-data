@@ -7,7 +7,7 @@ name = "nexora-data"
 version = "0.1.0"
 description = "SQL metadata discovery and selective Bronze Parquet extraction"
 requires-python = ">=3.11"
-dependencies = ["sqlalchemy>=2.0,<3", "pyarrow>=19,<26", "pydantic>=2.10,<3"]
+dependencies = ["sqlalchemy>=2.0,<3", "pyarrow>=19,<26", "pydantic>=2.10,<3", "dash>=3,<5"]
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
@@ -15,6 +15,8 @@ mssql = ["pyodbc>=5.2,<6"]
 
 [project.scripts]
 nexora-data = "nexora.src.cli:main"
+nexora-demo = "nexora.src.demo.generate:main"
+nexora-dash = "nexora.src.dash_ui.app:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
