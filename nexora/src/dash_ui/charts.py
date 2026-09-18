@@ -62,7 +62,7 @@ def usage_chart(result):
                 y=[p["active_users"] for p in points],
                 name="Arbre J+7",
                 mode="lines+markers",
-                line={"dash": "dash", "width": 2.5, "color": "#8b5cf6"},
+                line={"dash": "dash", "width": 2.5, "color": "#dc2626"},
                 marker={"size": 5},
                 hovertemplate="%{y:.1f} utilisateurs estimés<extra></extra>",
             )
