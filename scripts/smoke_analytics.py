@@ -27,11 +27,8 @@ def find(node, ident):
 
 
 root = layout.json()
-chart = find(root, "usage-chart")["figure"]
-assert len(chart["data"][0]["x"]) == 90
-assert len(chart["data"][1]["x"]) == 8
-assert any(value is None for value in chart["data"][0]["y"])
-assert len(find(root, "usage-metrics")["children"]) == 4
+assert find(root, "usage-chart") is None, "Les résultats ne doivent pas être préchargés"
+assert "Aucun jeu analytique" in json.dumps(root, ensure_ascii=False)
 assert find(root, "limit")["type"] == "text"
 assert find(root, "nav-dashboard")["href"] == "/"
 assert find(root, "nav-sources")["href"] == "/sources"
@@ -61,33 +58,20 @@ assert source["page-sources"]["style"] == {}
 assert source["page-dashboard"]["style"] == {"display": "none"}
 history = callback(
     "extraction-history",
-    [("url", "pathname", "/extractions"), ("refresh-extractions", "n_clicks", 1)],
-)
-assert "demo-analytics" in json.dumps(history)
-assert "s3://" in json.dumps(history)
-period = find(root, "period-filter")
-filtered = callback(
-    "..usage-metrics",
     [
-        ("software-filter", "value", 2),
-        ("organization-filter", "value", 1),
-        ("period-filter", "start_date", period["start_date"]),
-        ("period-filter", "end_date", period["end_date"]),
+        ("url", "pathname", "/extractions"),
+        ("refresh-extractions", "n_clicks", 1),
+        ('{"key":["ALL"],"type":"delete-extraction"}', "submit_n_clicks", []),
     ],
 )
-assert filtered["usage-chart"]["figure"]["data"][0]["y"] != chart["data"][0]["y"]
-assert len(filtered["usage-chart"]["figure"]["data"][1]["x"]) == 8
-assert "tous les jours" in filtered["coverage-note"]["children"]
+assert "Supprimer" in json.dumps(history, ensure_ascii=False)
 print(
     json.dumps(
         {
             "status": "ok",
-            "historical_days": 90,
-            "forecast_days": 7,
-            "dashboard_populated": True,
+            "startup_without_results": True,
             "navigation_verified": True,
-            "filters_verified": True,
-            "persisted_extractions_visible": True,
+            "deletion_controls_visible": True,
         }
     )
 )

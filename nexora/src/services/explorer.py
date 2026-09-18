@@ -11,6 +11,7 @@ from ..ingestion.connection import source_connection
 from ..ingestion.extract import extract
 from ..ingestion.selection import Selection
 from ..storage.minio import publish
+from .datasets import activate_collection
 
 
 class Explorer:
@@ -57,6 +58,7 @@ class Explorer:
                 selection = Selection.model_validate(payload)
                 if self.output is None:
                     result = publish(conn, selection)
+                    result["analysis_updated"] = activate_collection(result) is not None
                     if catalog is not None:
                         result["catalog"] = catalog
                     return result

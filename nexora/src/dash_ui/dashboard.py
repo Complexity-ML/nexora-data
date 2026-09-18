@@ -1,4 +1,4 @@
-from dash import Input, Output, dcc, html
+from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from .charts import usage_chart
@@ -231,9 +231,26 @@ def layout(dataset):
     )
 
 
-def register(app, dataset):
-    if dataset is None:
-        return
+def dataset_from_report(report):
+    import os
+
+    from ..services.datasets import load_dataset
+    from ..storage.minio import client_from_env
+
+    key = report.get("props", {}).get("data-manifest-key") if isinstance(report, dict) else None
+    if not key:
+        return None
+    from botocore.exceptions import ClientError
+
+    try:
+        return load_dataset(client_from_env(), os.environ["NEXORA_S3_BUCKET"], key)
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] in {"NoSuchKey", "404"}:
+            return None
+        raise
+
+
+def register(app, dataset, provider=None):
 
     @app.callback(
         Output("usage-metrics", "children"),
@@ -246,12 +263,22 @@ def register(app, dataset):
         Input("organization-filter", "value"),
         Input("period-filter", "start_date"),
         Input("period-filter", "end_date"),
+        Input("job", "data"),
+        Input("url", "pathname"),
+        *([State("result", "children")] if dataset is None else []),
     )
-    def update(software, organization, start, end):
+    def update(software, organization, start, end, job, path, *reports):
         if software is None or organization is None or not start or not end:
             raise PreventUpdate
         try:
-            return (*results(dataset, software, organization, start, end), "")
+            current = (
+                dataset_from_report(reports[0])
+                if reports
+                else (provider() if provider is not None else dataset)
+            )
+            if current is None:
+                raise PreventUpdate
+            return (*results(current, software, organization, start, end), "")
         except ValueError:
             # Clear previous results rather than present them under invalid filters.
             return (

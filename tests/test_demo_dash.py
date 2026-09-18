@@ -135,3 +135,103 @@ def test_worker_hides_sensitive_driver_errors(tmp_path):
         assert not any(s in json.dumps(result) for s in ["password", "private-host", "secret"])
     finally:
         explorer.close()
+
+
+def test_live_flow_starts_empty_collects_plots_and_deletes(demo, monkeypatch):
+    import boto3
+    from moto import mock_aws
+
+    from nexora.src.services.datasets import list_extractions
+
+    for key, value in {
+        "NEXORA_S3_ENDPOINT": "https://s3.amazonaws.com",
+        "NEXORA_S3_ACCESS_KEY": "testing",
+        "NEXORA_S3_SECRET_KEY": "testing",
+        "NEXORA_S3_BUCKET": "test-results",
+    }.items():
+        monkeypatch.setenv(key, value)
+    original = demo.read_bytes()
+    with mock_aws():
+        s3 = boto3.client(
+            "s3",
+            region_name="us-east-1",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+        )
+        s3.create_bucket(Bucket="test-results")
+        s3.put_object(Bucket="test-results", Key="bronze/other/keep.parquet", Body=b"keep")
+        app = create_app(f"sqlite:///{demo}", demo=True)
+        client = app.server.test_client()
+        try:
+            initial = client.get("/_dash-layout").text
+            assert "usage-chart" not in initial
+            assert not app.explorer.jobs
+            inputs = [
+                ("scan", "n_clicks", 0),
+                ("extract", "n_clicks", 1),
+                ("poll", "n_intervals", 0),
+            ]
+            states = [("limit", "value", ""), ("job", "data", None), ("catalog", "data", None)]
+            started = callback(client, app, "..catalog.data", "extract.n_clicks", inputs, states)
+            job = started["job"]["data"]
+            assert app.explorer.jobs[job["id"]][1].result(timeout=15)["ok"]
+            states[1] = ("job", "data", job)
+            finished = callback(client, app, "..catalog.data", "poll.n_intervals", inputs, states)
+            report = finished["result"]["children"]
+
+            def render():
+                response = client.post(
+                    "/_dash-update-component",
+                    json={
+                        "output": "page-dashboard.children",
+                        "outputs": {"id": "page-dashboard", "property": "children"},
+                        "inputs": [
+                            {"id": "result", "property": "children", "value": report},
+                            {"id": "extraction-history", "property": "children", "value": None},
+                        ],
+                        "state": [],
+                        "changedPropIds": ["result.children"],
+                    },
+                )
+                assert response.status_code == 200, response.text
+                return response.text
+
+            rendered = render()
+            assert "usage-chart" in rendered and "Projection J+7" in rendered
+            key = list_extractions()[0]["manifest_key"]
+            ident = {"type": "delete-extraction", "key": key}
+            response = client.post(
+                "/_dash-update-component",
+                json={
+                    "output": "extraction-history.children",
+                    "outputs": {"id": "extraction-history", "property": "children"},
+                    "inputs": [
+                        {"id": "url", "property": "pathname", "value": "/extractions"},
+                        {"id": "refresh-extractions", "property": "n_clicks", "value": 0},
+                        [{"id": ident, "property": "submit_n_clicks", "value": 1}],
+                    ],
+                    "state": [],
+                    "changedPropIds": [
+                        json.dumps(ident, separators=(",", ":"), sort_keys=True)
+                        + ".submit_n_clicks"
+                    ],
+                },
+            )
+            assert response.status_code == 200, response.text
+            assert list_extractions() == []
+            assert "usage-chart" not in render()
+            assert (
+                s3.get_object(Bucket="test-results", Key="bronze/other/keep.parquet")["Body"].read()
+                == b"keep"
+            )
+            assert demo.read_bytes() == original
+            # A second user-triggered collection can reproduce the entire demo.
+            job_id = app.explorer.submit(
+                "collect", {"source_label": "demo-enterprise", "row_limit": None}
+            )
+            assert app.explorer.jobs[job_id][1].result(timeout=15)["analysis_updated"]
+            assert len(list_extractions()) == 1
+            # Existing output must not be loaded on a new page session.
+            assert "usage-chart" not in client.get("/_dash-layout").text
+        finally:
+            app.explorer.close()

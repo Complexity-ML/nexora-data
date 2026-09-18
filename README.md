@@ -6,7 +6,7 @@ Nexora-data est une application Python/Dash d’analyse de l’usage logiciel, a
 
 - Dashboard d’usage avec filtres par logiciel, entité et période.
 - Historique, couverture des observations et projection statistique J+7.
-- Historique des extractions persistées dans MinIO.
+- Historique et suppression individuelle des extractions dans MinIO, sans modifier la source SQL.
 
 - Scan des schémas, tables, vues et métadonnées des champs.
 - Consultation des types, clés et relations déclarées.
@@ -26,7 +26,14 @@ docker compose up -d --build
 
 Les identifiants locaux sont générés dans `.env`, exclu de Git. Le script refuse d’écraser ce fichier.
 
-L’accueil affiche automatiquement les résultats du jeu de données fictif. Le scanner est accessible dans **Sources**, et les collectes publiées dans **Extractions**.
+Aucune démo ni collecte ne se lance au démarrage. Pour présenter le parcours avec un DW fictif, charger explicitement la base puis activer `NEXORA_DEMO=1` dans `.env` :
+
+```sh
+docker compose run --rm app nexora-demo --output /app/data/enterprise.sqlite
+docker compose up -d app
+```
+
+Dans **Sources**, lancer le scan puis la collecte. Les résultats de cette collecte apparaissent ensuite dans **Analyse**. Les anciennes extractions restent accessibles dans **Extractions**.
 
 Les Parquet et leurs manifestes sont stockés dans le bucket `nexora-data`, sous `bronze/<source>/<extraction>/`. Les volumes Docker conservent les données entre les redémarrages.
 

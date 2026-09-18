@@ -1,2 +1,9 @@
 .extractions-page .extraction-history { margin-top:22px; }
 .extractions-page td:last-child { font-size:12px;overflow-wrap:anywhere;max-width:400px; }
+.extractions-page .extraction-archive { margin-top:18px; }
+.extractions-page summary { cursor:pointer;font-size:13px;font-weight:500; }
+.extractions-page details .table-wrap { margin-top:16px; }
+.extractions-page code { display:block;overflow-wrap:anywhere;font-size:12px;margin-top:12px; }
+
+.nx-delete { margin-top: 0.75rem; background: white; color: #b42318; border: 1px solid #e4c2be; }
+.nx-delete:hover { background: #fff1f0; }

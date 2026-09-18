@@ -123,6 +123,8 @@ def test_dashboard_http_has_results_and_functional_filters(dataset):
                             ("organization-filter", "value", organization),
                             ("period-filter", "start_date", start),
                             ("period-filter", "end_date", end),
+                            ("job", "data", None),
+                            ("url", "pathname", "/"),
                         ]
                     ],
                     "state": [],
@@ -156,3 +158,53 @@ def test_observed_inactivity_is_zero_not_missing(dataset):
     assert empty["missing_days"] == 0
     assert all(point["active_users"] == 0 for point in empty["history"])
     assert all(point["active_users"] == 0 for point in empty["forecast"])
+
+
+def test_dashboard_uses_new_full_dw_collection_but_not_limited_trials(tmp_path, monkeypatch):
+    from nexora.src.services.datasets import DatasetReader
+    from nexora.src.services.explorer import Explorer
+
+    path = tmp_path / "dw.sqlite"
+    generate(path)
+    url = f"sqlite:///{path}"
+    for key, value in {
+        "NEXORA_S3_ENDPOINT": "https://s3.amazonaws.com",
+        "NEXORA_S3_ACCESS_KEY": "testing",
+        "NEXORA_S3_SECRET_KEY": "testing",
+        "NEXORA_S3_BUCKET": "nexora-demo",
+    }.items():
+        monkeypatch.setenv(key, value)
+    with mock_aws():
+        client = boto3.client(
+            "s3",
+            region_name="us-east-1",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+        )
+        client.create_bucket(Bucket="nexora-demo")
+        initial = ensure_demo(url, client=client, bucket="nexora-demo")
+        reader = DatasetReader(initial)
+        assert initial.manifest["source_label"] == "demo-enterprise"
+        assert len(initial.manifest["objects"]) == 9
+        assert initial.analyze(1, 0, initial.start, initial.end)["latest"] > 0
+        with sqlite3.connect(path) as conn:
+            conn.execute(
+                "DELETE FROM usage_observations WHERE observed_on=?", (initial.end.isoformat(),)
+            )
+        explorer = Explorer(url)
+        try:
+            job = explorer.submit("collect", {"source_label": "demo-enterprise", "row_limit": None})
+            full = explorer.jobs[job][1].result(timeout=15)
+            assert full["ok"] and full["analysis_updated"]
+            updated = reader.get()
+            assert updated.manifest["run_id"] != initial.manifest["run_id"]
+            assert updated.analyze(1, 0, updated.start, updated.end)["latest"] == 0
+            job = explorer.submit("collect", {"source_label": "demo-enterprise", "row_limit": 1})
+            limited = explorer.jobs[job][1].result(timeout=15)
+            assert limited["ok"] and not limited["analysis_updated"]
+            assert reader.get().manifest["run_id"] == updated.manifest["run_id"]
+            runs = list_extractions(client, bucket="nexora-demo")
+            assert sum(run["active"] for run in runs) == 1
+            assert {run["source"] for run in runs} == {"demo-enterprise"}
+        finally:
+            explorer.close()

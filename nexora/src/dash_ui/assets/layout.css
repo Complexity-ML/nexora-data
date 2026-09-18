@@ -19,3 +19,5 @@
 .nx-app aside a:hover { background:#294244;border-radius:6px;color:#fff; }
 .nx-app .sources-page > header, .nx-app .extractions-page > div > header { display:flex;align-items:center;justify-content:space-between;gap:24px; }
 .nx-app aside .nav-active, .nx-app aside .nav-muted { padding:13px 12px;min-height:44px;margin-bottom:6px; }
+
+.nx-app .brand-logo { display: block; width: 100%; max-width: 180px; height: auto; }

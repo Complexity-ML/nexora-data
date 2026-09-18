@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
+from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from ..services.explorer import Explorer
 from . import dashboard, extractions
@@ -62,7 +62,7 @@ def metadata_table(obj):
     )
 
 
-def create_app(source_url=None, output=None, demo=False, dataset=None):
+def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_provider=None):
     source_url = source_url or os.environ.get("NEXORA_SOURCE_URL")
     explorer = Explorer(source_url, output)
     atexit.register(explorer.close)
@@ -70,13 +70,21 @@ def create_app(source_url=None, output=None, demo=False, dataset=None):
         __name__,
         title="Nexora · Usage et projection",
         assets_folder=str(Path(__file__).parent / "assets"),
+        suppress_callback_exceptions=True,
     )
     app.explorer = explorer
     app.layout = html.Div(
         [
             html.Aside(
                 [
-                    html.Div("nexora", className="brand"),
+                    html.Div(
+                        html.Img(
+                            src=app.get_asset_url("nexora-logo.svg"),
+                            alt="Nexora",
+                            className="brand-logo",
+                        ),
+                        className="brand",
+                    ),
                     html.Div("DATA WORKSPACE", className="eyebrow"),
                     dcc.Link("Analyse", href="/", id="nav-dashboard", className="nav-active"),
                     dcc.Link("Sources", href="/sources", id="nav-sources", className="nav-muted"),
@@ -206,7 +214,17 @@ def create_app(source_url=None, output=None, demo=False, dataset=None):
             ),
         ]
     )
-    dashboard.register(app, dataset)
+    dashboard.register(app, dataset, dataset_provider)
+
+    if dataset is None:
+
+        @app.callback(
+            Output("page-dashboard", "children"),
+            Input("result", "children"),
+            Input("extraction-history", "children"),
+        )
+        def show_collected_analysis(report, history):
+            return dashboard.layout(dashboard.dataset_from_report(report))
 
     @app.callback(
         Output("page-dashboard", "style"),
@@ -228,8 +246,28 @@ def create_app(source_url=None, output=None, demo=False, dataset=None):
         Output("extraction-history", "children"),
         Input("url", "pathname"),
         Input("refresh-extractions", "n_clicks"),
+        Input({"type": "delete-extraction", "key": ALL}, "submit_n_clicks"),
     )
-    def extraction_history(path, clicks):
+    def extraction_history(path, clicks, deletions):
+        triggered = ctx.triggered_id
+        if isinstance(triggered, dict) and any(deletions):
+            from ..services.datasets import delete_extraction
+
+            try:
+                with explorer.lock:
+                    if any(not future.done() for _, future in explorer.jobs.values()):
+                        raise ValueError("Un traitement est en cours")
+                    delete_extraction(triggered["key"])
+            except Exception:  # noqa: BLE001 — keep storage credentials out of UI
+                return html.Div(
+                    [
+                        html.P(
+                            "Suppression impossible. Vérifiez qu’aucune collecte n’est en cours, puis réessayez.",
+                            role="alert",
+                        ),
+                        extractions.history(),
+                    ]
+                )
         return extractions.history() if path == "/extractions" else no_update
 
     @app.callback(
@@ -302,8 +340,20 @@ def create_app(source_url=None, output=None, demo=False, dataset=None):
                         else "Toutes les lignes de la requête ont été exportées."
                     ),
                     html.P(f"{len(extracted)} tables et vues collectées · tous les champs"),
+                    html.P(
+                        "Le dashboard utilise cette collecte."
+                        if result.get("analysis_updated")
+                        else "Cette extraction ne fournit pas de résultats analytiques complets."
+                    ),
                     html.P(f"Stockage : {result['directory']}"),
-                ]
+                ],
+                **{
+                    "data-manifest-key": (
+                        manifest["storage"]["prefix"] + "/manifest.json"
+                        if result.get("analysis_updated")
+                        else ""
+                    )
+                },
             )
             return (
                 result.get("catalog", no_update),
@@ -378,12 +428,7 @@ def main():
         source = os.environ.get("NEXORA_SOURCE_URL")
         if not source:
             parser.error("Définir NEXORA_SOURCE_URL ou utiliser --demo.")
-    from ..services.datasets import ensure_demo
-
-    dataset = ensure_demo(source) if args.demo else None
-    create_app(source, demo=args.demo, dataset=dataset).run(
-        host="127.0.0.1", port=args.port, debug=False
-    )
+    create_app(source, demo=args.demo).run(host="127.0.0.1", port=args.port, debug=False)
 
 
 if __name__ == "__main__":

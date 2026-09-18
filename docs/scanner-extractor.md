@@ -96,7 +96,7 @@ Ce test appelle les endpoints Dash, scanne la base fictive, extrait 100 observat
 
 ## Analyse et projection
 
-En mode démonstration, le premier démarrage publie un snapshot complet des sept tables du jeu fictif dans MinIO. Les redémarrages relisent ce même snapshot : l’accueil ne nécessite aucune collecte manuelle. La page Sources permet de lancer des extractions supplémentaires ; elles apparaissent dans Extractions et ne remplacent pas automatiquement le snapshot analytique.
+En mode démonstration, le DW fictif est la seule source. Le démarrage ne génère aucune donnée et ne charge aucun résultat. Le DW est préparé explicitement ; le scan et la collecte se lancent depuis Sources. Chaque nouvelle collecte complète et valide devient la source de l’analyse ; les essais tronqués ne la remplacent pas. Le dashboard affiche les résultats de la collecte déclenchée dans la session, sans redémarrage. Extractions distingue la collecte utilisée de son historique. Les vues sont exportées mais ne sont pas recomptées dans les indicateurs, calculés à partir des tables d’observations.
 
 L’accueil calcule le nombre d’utilisateurs actifs distincts par jour et logiciel, avec filtres par entité et période inclusive. Une journée sans couverture complète du périmètre est absente de la courbe, et non remplacée par zéro. Le nombre d’installations est mesuré à la fin de la période choisie.
 
@@ -111,3 +111,5 @@ Vérification de l’accueil, des filtres et de la navigation par HTTP :
 ```sh
 docker compose exec -T app python < scripts/smoke_analytics.py
 ```
+
+Dans **Extractions**, le bouton **Supprimer** retire les Parquet et le manifeste de la collecte sélectionnée après confirmation. La source SQL et les autres extractions sont conservées. Les graphiques liés à une collecte supprimée sont retirés ; une nouvelle collecte peut être lancée depuis Sources.

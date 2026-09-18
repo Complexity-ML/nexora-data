@@ -12,7 +12,7 @@ content = "\n".join(
         "NEXORA_S3_ACCESS_KEY=nexora-app",
         f"NEXORA_S3_SECRET_KEY={secrets.token_hex(24)}",
         "NEXORA_S3_BUCKET=nexora-data",
-        "NEXORA_DEMO=1",
+        "NEXORA_DEMO=0",
         "",
     ]
 )

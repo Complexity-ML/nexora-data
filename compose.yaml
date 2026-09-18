@@ -31,7 +31,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     environment:
-      NEXORA_DEMO: ${NEXORA_DEMO:-1}
+      NEXORA_DEMO: ${NEXORA_DEMO:-0}
       NEXORA_SOURCE_URL: ${NEXORA_SOURCE_URL:-}
       NEXORA_S3_ENDPOINT: http://minio:9000
       NEXORA_S3_BUCKET: ${NEXORA_S3_BUCKET:-nexora-data}
