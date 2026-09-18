@@ -91,8 +91,11 @@ def layout(dataset, search=""):
                                     html.Label("Logiciel", htmlFor="op-search"),
                                     dcc.Input(
                                         id="op-search",
+                                        type="search",
+                                        disabled=False,
+                                        readOnly=False,
                                         placeholder="Rechercher un logiciel…",
-                                        debounce=0.3,
+                                        debounce=False,
                                         className="nx-input",
                                         value="",
                                     ),
