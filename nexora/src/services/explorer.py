@@ -10,12 +10,13 @@ from ..ingestion.catalog import scan
 from ..ingestion.connection import source_connection
 from ..ingestion.extract import extract
 from ..ingestion.selection import Selection
+from ..storage.minio import publish
 
 
 class Explorer:
-    def __init__(self, source_url, output):
+    def __init__(self, source_url, output=None):
         self.source_url = source_url
-        self.output = Path(output)
+        self.output = Path(output) if output is not None else None
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="nexora-explorer")
         self.lock = Lock()
         self.jobs = {}
@@ -39,6 +40,8 @@ class Explorer:
                 if kind == "scan":
                     return {"ok": True, "catalog": scan(conn, payload)}
                 selection = Selection.model_validate(payload)
+                if self.output is None:
+                    return publish(conn, selection)
                 run = extract(conn, selection, self.output)
                 return {
                     "ok": True,

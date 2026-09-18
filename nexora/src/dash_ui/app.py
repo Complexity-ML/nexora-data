@@ -61,7 +61,7 @@ def metadata_table(obj):
     )
 
 
-def create_app(source_url=None, output=Path("data/bronze"), demo=False):
+def create_app(source_url=None, output=None, demo=False):
     source_url = source_url or os.environ.get("NEXORA_SOURCE_URL")
     explorer = Explorer(source_url, output)
     atexit.register(explorer.close)
@@ -296,7 +296,7 @@ def create_app(source_url=None, output=Path("data/bronze"), demo=False):
                         else "Toutes les lignes de la requête ont été exportées."
                     ),
                     html.P(f"Source : {extracted['schema']}.{extracted['name']}"),
-                    html.P(f"Dossier local : {result['directory']}"),
+                    html.P(f"Stockage : {result['directory']}"),
                     html.P(
                         f"Fichier : {extracted['file']} · Empreinte SHA-256 enregistrée dans manifest.json"
                     ),

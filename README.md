@@ -1,16 +1,30 @@
 # nexora-data
 
-Nexora-data est un outil Python d’exploration de bases SQL et d’extraction de données au format Parquet.
+Nexora-data est un outil Python/Dash d’exploration de bases SQL et d’extraction de données Parquet vers MinIO.
 
 ## Fonctionnalités
 
-- Interface web Python/Dash pour explorer la source et lancer les extractions.
-- Découverte des schémas, tables, vues et métadonnées des champs.
+- Scan des schémas, tables, vues et métadonnées des champs.
 - Consultation des types, clés et relations déclarées.
 - Sélection des tables et colonnes à extraire.
-- Extraction par lots avec un manifeste de provenance.
+- Extraction par lots vers MinIO avec un manifeste de provenance.
+- Jeu de données SQL fictif pour la démonstration.
 
-## Installation
+## Démarrage avec Docker
+
+```sh
+python3 scripts/configure_local.py
+docker compose up -d --build
+```
+
+- Application : http://127.0.0.1:8051
+- Console MinIO : http://127.0.0.1:9001
+
+Les identifiants locaux sont générés dans `.env`, exclu de Git. Le script refuse d’écraser ce fichier.
+
+Les Parquet et leurs manifestes sont stockés dans le bucket `nexora-data`, sous `bronze/<source>/<extraction>/`. Les volumes Docker conservent les données entre les redémarrages.
+
+## Développement Python
 
 Python 3.11 ou supérieur.
 
@@ -20,24 +34,6 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-## Démonstration
+Les sources se trouvent dans `nexora/src/`.
 
-```sh
-nexora-demo
-nexora-dash --demo
-```
-
-Interface locale : http://127.0.0.1:8051. Le générateur crée une base SQLite fictive de 90 jours ; il refuse d’écraser une base existante.
-
-## Utilisation
-
-Configurer la connexion SQL dans la variable d’environnement `NEXORA_SOURCE_URL`, puis lancer :
-
-```sh
-nexora-data scan --output data/catalog.json
-nexora-data extract --selection examples/selection.json --output data/bronze
-```
-
-Les sources Python se trouvent dans `nexora/src/`.
-
-Voir le [guide du scanner et de l’extracteur](docs/scanner-extractor.md).
+Voir le [guide d’utilisation](docs/scanner-extractor.md).

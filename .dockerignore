@@ -1,0 +1,14 @@
+.git
+.venv
+.env
+.env.*
+data
+work
+outputs
+dist
+__pycache__
+.pytest_cache
+.ruff_cache
+uv.lock
+*.sqlite
+*.parquet

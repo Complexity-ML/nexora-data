@@ -1,103 +1,95 @@
-# Scanner SQL et extracteur Bronze
+# Scanner SQL et extraction MinIO
 
-## Installation
+## Stack Docker locale
 
-Depuis la racine du dépôt, dans un environnement virtuel activé :
+```sh
+python3 scripts/configure_local.py
+docker compose up -d --build
+docker compose ps
+```
+
+Trois services : `minio`, `minio-init` (création du bucket et du compte applicatif) et `app` (Dash/Gunicorn). Un seul worker applicatif conserve la file locale des traitements ; quatre threads répondent aux requêtes HTTP. Le service applicatif attend la réussite de l’initialisation MinIO.
+
+Les ports sont exposés uniquement sur `127.0.0.1` : 8051 pour Dash, 9000 pour S3, 9001 pour la console MinIO. Le compte applicatif MinIO accède au bucket configuré et aux objets sous `bronze/`. Les identifiants administrateur restent réservés à MinIO et au service d’initialisation.
+
+Les volumes `minio-data` et `demo-data` stockent respectivement les objets S3 et la base SQL fictive. `docker compose down` arrête les services sans supprimer ces volumes. `docker compose down -v` efface leurs données.
+
+## Parcours Dash
+
+1. Lancer le scan, éventuellement limité à un ou plusieurs schémas.
+2. Choisir une table ou une vue.
+3. Sélectionner les colonnes et une limite de lignes.
+4. Lancer l’extraction et consulter l’adresse `s3://…` du résultat.
+
+Le scan consulte les métadonnées, sans échantillonnage des lignes métier ni comptage complet. Il remonte types, nullabilité, valeurs par défaut, clés, index et commentaires disponibles. Les métadonnées non prises en charge sont signalées. Les relations non déclarées ne sont pas devinées. Les vues matérialisées ne sont pas encore listées séparément.
+
+La connexion reste côté serveur. Les opérations sont exécutées une à la fois en arrière-plan. Les états des traitements sont en mémoire et disparaissent au redémarrage. Cette interface locale ne fournit pas d’authentification ni d’isolation multi-utilisateur.
+
+## Source SQL réelle
+
+Dans `.env`, définir `NEXORA_DEMO=0` et `NEXORA_SOURCE_URL` avec une URL SQLAlchemy, puis recréer le service `app`.
+
+Utiliser un compte SQL en lecture seule. PostgreSQL active également une transaction READ ONLY et un délai de 60 secondes par instruction. SQLite active `query_only`. SQL Server dépend des permissions du compte source.
+
+- SQLite : inclus et testé dans la démonstration.
+- PostgreSQL : pilote psycopg inclus dans l’image Docker.
+- SQL Server : dialecte préparé ; nécessite `pip install -e '.[mssql]'` et un pilote ODBC système adapté. Ce pilote n’est pas inclus dans l’image fournie.
+
+Les connexions PostgreSQL et SQL Server doivent être validées sur la base cible. Ne pas committer les URL privées ou identifiants.
+
+## Commandes Python
+
+Dans un environnement virtuel :
 
 ```sh
 pip install -e .
-nexora-data --help
-```
-
-Python 3.11 ou supérieur.
-
-## Démonstration locale reproductible
-
-Les données de cette démonstration sont fictives. Le script refuse d’écraser une base existante.
-
-```sh
 nexora-demo
 export NEXORA_SOURCE_URL="sqlite:///data/enterprise.sqlite"
 nexora-data scan --schema main --output data/catalog.json
-nexora-data extract --selection examples/selection.json --output data/bronze
+nexora-data extract --selection examples/selection.json
+nexora-dash --demo
 ```
 
-Le catalogue JSON donne les schémas, tables et vues, champs/types, nullabilité, valeurs par défaut, colonnes calculées/identités si exposées, clés primaires, clés étrangères, index et commentaires disponibles. Une métadonnée non prise en charge par le pilote est indiquée explicitement. Les noms et commentaires peuvent contenir des informations internes : conserver les catalogues dans un stockage autorisé.
+Pour les exports MinIO hors Docker, définir dans l’environnement : `NEXORA_S3_ENDPOINT` (par exemple `http://127.0.0.1:9000`), `NEXORA_S3_BUCKET`, `NEXORA_S3_ACCESS_KEY` et `NEXORA_S3_SECRET_KEY`. Les commandes Python ne chargent pas `.env` automatiquement. MinIO doit être démarré et le bucket initialisé. L’option `--output` de `extract` permet explicitement un export local pour les tests ; l’interface utilise MinIO.
 
-Le scan n’échantillonne aucune ligne métier et ne lance pas de COUNT sur les tables. La découverte ne déduit pas de relations non déclarées et n’interprète pas automatiquement la sémantique des champs. Une erreur de permission ou de réflexion interrompt le scan ; aucun catalogue prétendument complet n’est alors publié. Les vues matérialisées ne sont pas encore listées séparément.
+`examples/selection.json` définit un label de provenance, une taille de lot et des objets avec schéma, nom, colonnes et limite. La limite vaut 10 000 lignes par défaut ; `null` demande une extraction complète en CLI. Dans Dash, la limite est comprise entre 1 et 1 000 000.
 
-Sans `--schema`, les schémas retournés par le pilote sont explorés, hors schémas système connus. Sur une grande base, utiliser plusieurs `--schema` pour limiter le périmètre. La visibilité dépend des droits du compte source.
+Une extraction limitée n’est ni ordonnée ni un échantillon statistique. Le manifeste signale la troncature. Les identifiants SQL sont cités par SQLAlchemy ; aucune requête SQL libre n’est acceptée.
 
-## Connexion à une base réelle
-
-`NEXORA_SOURCE_URL` est lu dans l’environnement uniquement. Ne pas enregistrer sa valeur dans les fichiers du projet ou les commandes partagées. Aucun `.env` n’est chargé automatiquement.
-
-- PostgreSQL : installer `pip install -e ".[postgres]"`, puis utiliser une URL SQLAlchemy `postgresql+psycopg`.
-- SQL Server : installer `pip install -e ".[mssql]"`, ainsi que le pilote ODBC système adapté, puis utiliser une URL SQLAlchemy `mssql+pyodbc`.
-- SQLite : inclus pour les tests et démonstrations.
-
-Seul SQLite a été testé localement pour cette première version. Les adaptateurs PostgreSQL et SQL Server reposent sur les dialectes SQLAlchemy mais doivent être validés sur le moteur et le pilote réels. Les autres moteurs seront ajoutés après identification du DW.
-
-Utiliser un compte source dédié avec droits de lecture uniquement. L’application n’émet aucune écriture métier. SQLite active `query_only`; PostgreSQL active une transaction READ ONLY et un délai maximal de 60 secondes par instruction. SQL Server dépend des autorisations du compte pour imposer la lecture seule : le programme ne prétend pas réduire ses privilèges. Les délais réseau et requête SQL Server sont à régler avec le pilote choisi.
-
-## Sélection explicite
-
-Adapter `examples/selection.json` d’après le catalogue. Le nom de schéma est obligatoire, même pour le schéma par défaut. Chaque objet exige une liste explicite de colonnes.
-
-- `source_label` : identifiant logique de provenance, sans mot de passe ni URL privée.
-- `batch_size` : nombre maximum de lignes traitées par lot, entre 1 et 100 000. La mémoire dépend aussi de la taille de chaque ligne et du buffering du pilote.
-- `row_limit` : 10 000 par défaut, ou `null` pour demander explicitement une extraction complète. Une ligne supplémentaire est lue au maximum pour détecter une troncature.
-
-Les noms sont utilisés comme identifiants SQLAlchemy, jamais interpolés comme SQL libre. Toutes les sélections et les types Parquet sont validés avant la lecture des lignes métier. Pas de requête SQL arbitraire, de jointure automatique ou de filtre libre dans cette version. Créer une vue de lecture côté DW si un sous-ensemble complexe est nécessaire.
-
-Une extraction limitée n’est pas un échantillon statistique ni un extrait ordonné : aucun ordre n’est garanti. Le manifeste indique si des lignes supplémentaires ont été exclues. Ne pas utiliser une extraction tronquée comme historique exhaustif d’usage.
-
-## Sortie et intégrité
-
-Chaque lancement produit un nouveau répertoire UUID :
+## Objets Parquet
 
 ```text
-bronze/<run-id>/
+s3://nexora-data/bronze/<source-label>/<run-id>/
   object-0000.parquet
-  object-0001.parquet
   manifest.json
 ```
 
-Le manifeste conserve le label source, le moteur, le schéma/table, les colonnes, les limites, les horaires UTC d’extraction, les nombres de lignes, la troncature, le schéma Arrow, les tailles et empreintes SHA-256. L’URL source et ses identifiants ne sont pas enregistrés. Les noms de fichiers sont indépendants des noms SQL.
+Les Parquet sont préparés dans un répertoire temporaire, envoyé vers MinIO puis supprimé. Aucun Parquet permanent n’est écrit dans le volume de la base de démonstration. Le disque temporaire doit pouvoir contenir l’extraction ; la mémoire est traitée par lots, sous réserve du buffering du pilote SQL.
 
-Les dates métier ne sont ni inventées ni remplacées par la date d’extraction : sélectionner leurs colonnes explicitement. Les entiers, flottants, booléens, textes, binaires, dates/heures, UUID et décimaux à précision déclarée sont pris en charge. Un type inconnu ou complexe fait échouer l’extraction : aucune conversion silencieuse en texte. Pour un décimal sans précision déclarée, exposer un CAST approprié dans une vue. Les valeurs nulles et tables vides conservent leur schéma.
+Le manifeste est envoyé en dernier et marque la publication du résultat. Il contient les champs sélectionnés, la source logique, les horaires UTC, la quantité de lignes, la troncature, le schéma Arrow, les clés S3, les tailles et empreintes SHA-256. Il ne contient pas les identifiants de connexion. Les lecteurs ne doivent utiliser que les extractions possédant un manifeste.
 
-Le répertoire est préparé sous un nom `.partial`, puis renommé après réussite de tous les objets. Une erreur gérée supprime la préparation ; un arrêt brutal de la machine peut laisser un dossier `.partial` à ignorer/nettoyer. Les lecteurs doivent consulter uniquement les répertoires publiés avec manifeste. Cette atomicité concerne la sortie, pas une photographie transactionnelle cohérente de plusieurs tables source : le manifeste indique `cross_object_snapshot_guaranteed: false`.
+Les tailles et métadonnées d’empreinte sont vérifiées après envoi. Les tests relisent aussi le Parquet et recalculent son empreinte. En cas d’erreur, un nettoyage des objets est tenté ; une panne réseau ou un arrêt brutal peut laisser des objets sans manifeste. Aucun mécanisme de purge automatique n’est encore fourni.
 
-Chaque extraction est un snapshot indépendant. Pas encore d’incrémental, de reprise d’un lot interrompu, de déduplication entre snapshots, de publication Gold ou de synchronisation des suppressions. Le Parquet est une couche Bronze brute ; sélectionner uniquement les champs autorisés. La pseudonymisation est à définir avant extraction de données personnelles réelles.
+La publication ne garantit pas un snapshot transactionnel cohérent de plusieurs tables SQL : le manifeste l’indique. Chaque lancement crée un snapshot indépendant ; il n’y a pas encore de collecte incrémentale ni de reprise d’une extraction interrompue.
 
-Les erreurs CLI affichent leur classe, sans traceback ni message brut du pilote susceptible de contenir des secrets ou des données. Un code retour non nul signale l’échec.
+Les types simples, dates/heures, UUID et décimaux à précision déclarée sont pris en charge. Un type inconnu provoque une erreur plutôt qu’une conversion silencieuse. Les valeurs nulles et tables vides conservent leur schéma. Les données sont conservées telles qu’extraites : sélectionner uniquement les champs autorisés.
 
-## Tests
+## Données fictives et tests
+
+Le générateur produit par défaut 4 entités, 6 logiciels, 240 utilisateurs, 240 machines, 720 installations et 90 jours d’observations, du 20 juin au 17 septembre 2026. Les noms et identifiants sont inventés. La graine fixe permet de reproduire les données ; un fichier existant n’est jamais écrasé.
+
+Sept tables : `organizations`, `software`, `users`, `machines`, `installations`, `collection_coverage`, `usage_observations`. Deux vues : `installation_inventory`, `observed_usage`. Les jours de collecte manquants sont distingués des jours observés sans activité.
 
 ```sh
-pip install pytest ruff
+pip install pytest ruff 'moto[s3]'
 pytest -q
 ruff check .
 ```
 
-Références techniques : [réflexion SQLAlchemy](https://docs.sqlalchemy.org/en/20/core/reflection.html), [écriture Parquet avec PyArrow](https://arrow.apache.org/docs/python/parquet.html).
-
-## Interface Dash
+Pour vérifier la stack en cours d’exécution, sans navigateur :
 
 ```sh
-nexora-demo
-nexora-dash --demo
+docker compose exec -T app python < scripts/smoke_stack.py
 ```
 
-Ouvrir `http://127.0.0.1:8051`, lancer le scan, choisir une table et ses champs, puis extraire. Pour une source configurée dans `NEXORA_SOURCE_URL`, lancer `nexora-dash` sans `--demo`. La connexion est configurée côté serveur ; elle n’est pas saisie ni renvoyée dans l’interface. Le mode démonstration ignore la connexion réelle et utilise uniquement la base fictive locale.
-
-Le scanner et l’extracteur utilisent une file locale avec un traitement à la fois. Les états de traitement sont en mémoire et disparaissent au redémarrage. L’application écoute uniquement sur la boucle locale ; cette version ne propose pas d’authentification ni d’isolation multi-utilisateur. La limite de l’extraction dans l’interface est comprise entre 1 et 1 000 000 de lignes.
-
-## Jeu de données fictif
-
-Le générateur `nexora-demo` utilise une graine fixe, des noms inventés et des identifiants synthétiques. Par défaut : 4 entités, 6 logiciels, 240 utilisateurs, 240 machines, 720 installations et 90 jours du 20 juin au 17 septembre 2026. Les paramètres `--days`, `--users`, `--seed` et `--output` permettent de produire un autre fichier.
-
-Sept tables : `organizations`, `software`, `users`, `machines`, `installations`, `collection_coverage` et `usage_observations`. Deux vues de lecture : `installation_inventory` et `observed_usage`. Les clés étrangères sont déclarées.
-
-Les observations représentent une durée d’utilisation quotidienne par installation. Les jours manquants sont explicités dans `collection_coverage`. Les données comprennent une variation semaine/week-end, une hausse et une baisse d’usage, un déploiement au cours de la période et des installations sans activité. Ce schéma sert aux tests ; il ne reproduit pas le schéma de Flexera.
+Ce test appelle les endpoints Dash, scanne la base fictive, extrait 100 observations dans MinIO, relit le Parquet et vérifie son empreinte. Il crée une extraction de test dans le bucket et nécessite le mode démonstration.
