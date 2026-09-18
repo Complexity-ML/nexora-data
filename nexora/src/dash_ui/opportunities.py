@@ -92,7 +92,7 @@ def layout(dataset, search=""):
                                     dcc.Input(
                                         id="op-search",
                                         placeholder="Rechercher un logiciel…",
-                                        debounce=True,
+                                        debounce=0.3,
                                         className="nx-input",
                                         value="",
                                     ),
