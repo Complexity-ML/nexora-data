@@ -1,6 +1,7 @@
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
+from ..services.datasets import DatasetReader
 from .charts import usage_chart
 
 
@@ -235,27 +236,17 @@ def layout(dataset):
     )
 
 
+_published_reader = DatasetReader()
+
+
 def dataset_from_report(report):
     import os
 
-    from ..services.datasets import active_key, load_dataset
-    from ..storage.minio import client_from_env
-
-    key = report.get("props", {}).get("data-manifest-key") if isinstance(report, dict) else None
-    from botocore.exceptions import ClientError
-
     if not os.environ.get("NEXORA_S3_BUCKET"):
         return None
-    client = client_from_env()
-    bucket = os.environ["NEXORA_S3_BUCKET"]
-    try:
-        # The published selection survives page reloads; reading never starts collection.
-        key = key or active_key(client, bucket)
-        return load_dataset(client, bucket, key) if key else None
-    except ClientError as exc:
-        if exc.response["Error"]["Code"] in {"NoSuchKey", "404"}:
-            return None
-        raise
+    # The persisted pointer is authoritative, including after deletion. Reuse
+    # immutable data until it changes, rather than downloading every keystroke.
+    return _published_reader.get()
 
 
 def register(app, dataset, provider=None):

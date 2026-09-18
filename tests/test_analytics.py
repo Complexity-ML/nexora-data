@@ -228,3 +228,49 @@ def test_tree_calendar_forecast_and_paired_backtest():
     assert predict(history[:20], tree=True) == []
     history[-1]["active_users"] = None
     assert predict(history, tree=True) == []
+
+
+def test_published_reader_reuses_data_and_invalidates_on_delete(monkeypatch, dataset):
+    from nexora.src.services import datasets
+
+    selected = ["bronze/demo-enterprise/first/manifest.json"]
+    calls = []
+    monkeypatch.setenv("NEXORA_S3_BUCKET", "test-reader")
+    monkeypatch.setattr(datasets, "client_from_env", lambda: object())
+    monkeypatch.setattr(datasets, "active_key", lambda client, bucket: selected[0])
+
+    def load(client, bucket, key):
+        calls.append(key)
+        result = copy.copy(dataset)
+        result.manifest = {"storage": {"prefix": key.removesuffix("/manifest.json")}}
+        return result
+
+    monkeypatch.setattr(datasets, "load_dataset", load)
+    reader = datasets.DatasetReader()
+    first = reader.get()
+    assert reader.get() is first
+    assert len(calls) == 1
+    selected[0] = "bronze/demo-enterprise/second/manifest.json"
+    assert reader.get() is not first
+    assert len(calls) == 2
+    selected[0] = None
+    assert reader.get() is None
+    assert reader.dataset is None
+
+
+def test_collection_poll_is_disabled_when_idle(dataset):
+    app = create_app("sqlite:///unused", demo=True, dataset=dataset)
+    client = app.server.test_client()
+    for job, expected in [(None, True), ({"id": "running"}, False), (None, True)]:
+        response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": "poll.disabled",
+                "outputs": {"id": "poll", "property": "disabled"},
+                "inputs": [{"id": "job", "property": "data", "value": job}],
+                "state": [],
+                "changedPropIds": ["job.data"],
+            },
+        )
+        assert response.status_code == 200
+        assert response.json["response"]["poll"]["disabled"] is expected

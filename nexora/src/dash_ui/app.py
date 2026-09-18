@@ -193,7 +193,7 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
                     ),
                     dcc.Store(id="catalog"),
                     dcc.Store(id="job"),
-                    dcc.Interval(id="poll", interval=800),
+                    dcc.Interval(id="poll", interval=800, disabled=True),
                 ],
                 className="sources-page",
             ),
@@ -358,6 +358,10 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
             )
             for obj in objects
         ]
+
+    @app.callback(Output("poll", "disabled"), Input("job", "data"))
+    def poll_only_running_job(job):
+        return not bool(job)
 
     @app.callback(
         Output("catalog", "data"),

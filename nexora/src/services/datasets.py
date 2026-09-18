@@ -128,20 +128,26 @@ def ensure_demo(source_url, client=None, bucket=None):
 
 
 class DatasetReader:
-    def __init__(self, initial):
+    def __init__(self, initial=None):
         from threading import Lock
 
         self.dataset = initial
         self.lock = Lock()
 
+    @synchronized
     def get(self):
         client = client_from_env()
         bucket = os.environ["NEXORA_S3_BUCKET"]
         with self.lock:
             key = active_key(client, bucket)
             if not key:
-                raise ValueError("Aucune collecte analytique publiée")
-            current = self.dataset.manifest["storage"]["prefix"] + "/manifest.json"
+                self.dataset = None
+                return None
+            current = (
+                self.dataset.manifest["storage"]["prefix"] + "/manifest.json"
+                if self.dataset is not None
+                else None
+            )
             if key != current:
                 self.dataset = load_dataset(client, bucket, key)
             return self.dataset
