@@ -69,6 +69,7 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
     app = Dash(
         __name__,
         title="Nexora · Usage et projection",
+        update_title=None,
         assets_folder=str(Path(__file__).parent / "assets"),
         suppress_callback_exceptions=True,
     )
@@ -208,6 +209,7 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
     app.layout.children[1] = html.Main(
         [
             dcc.Location(id="url", refresh=False),
+            dcc.Store(id="op-mounted-version"),
             html.Div(dashboard.layout(dataset), id="page-dashboard", className="dashboard-page"),
             html.Div(
                 sources.children,
@@ -238,20 +240,32 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
 
     @app.callback(
         Output("page-opportunities", "children"),
+        Output("op-mounted-version", "data"),
         Input("url", "pathname"),
         Input("url", "search"),
         Input("result", "children"),
         Input("extraction-history", "children"),
+        State("op-mounted-version", "data"),
     )
-    def show_opportunities(path, search, report, history):
+    def show_opportunities(path, search, report, history, mounted):
         if path != "/opportunities":
-            return no_update
+            return no_update, no_update
         current = (
             (dataset_provider() if dataset_provider else dataset)
             if dataset is not None
             else dashboard.dataset_from_report(report)
         )
-        return opportunities.layout(current, search)
+        version = {
+            "collection": (
+                current.manifest.get("storage", {}).get("prefix", "provided-dataset")
+                if current is not None
+                else None
+            ),
+            "scope": list(opportunities.scope(search)),
+        }
+        if mounted == version:
+            return no_update, no_update
+        return opportunities.layout(current, search), version
 
     @app.callback(
         Output("software-filter", "value"),

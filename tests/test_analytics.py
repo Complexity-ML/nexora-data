@@ -274,3 +274,52 @@ def test_collection_poll_is_disabled_when_idle(dataset):
         )
         assert response.status_code == 200
         assert response.json["response"]["poll"]["disabled"] is expected
+
+
+def test_opportunities_keeps_mounted_controls_until_scope_or_collection_changes(dataset):
+    current = [dataset]
+    app = create_app("sqlite:///unused", dataset=dataset, dataset_provider=lambda: current[0])
+    client = app.server.test_client()
+    key = next(k for k in app.callback_map if k.startswith("..page-opportunities.children"))
+    outputs = app.callback_map[key]["output"]
+    mounted = None
+
+    def navigate(path, query=""):
+        nonlocal mounted
+        response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": key,
+                "outputs": [
+                    {"id": o.component_id, "property": o.component_property} for o in outputs
+                ],
+                "inputs": [
+                    {"id": i, "property": p, "value": v}
+                    for i, p, v in [
+                        ("url", "pathname", path),
+                        ("url", "search", query),
+                        ("result", "children", None),
+                        ("extraction-history", "children", None),
+                    ]
+                ],
+                "state": [{"id": "op-mounted-version", "property": "data", "value": mounted}],
+                "changedPropIds": ["url.pathname"],
+            },
+        )
+        assert response.status_code in (200, 204)
+        result = response.json["response"] if response.status_code == 200 else {}
+        if "op-mounted-version" in result:
+            mounted = result["op-mounted-version"]["data"]
+        return result
+
+    try:
+        assert "page-opportunities" in navigate("/opportunities")
+        assert navigate("/sources") == {}
+        assert navigate("/opportunities") == {}
+        assert navigate("/opportunities") == {}
+        assert "page-opportunities" in navigate("/opportunities", "?software=5")
+        assert navigate("/opportunities", "?software=5") == {}
+        current[0] = None
+        assert "page-opportunities" in navigate("/opportunities", "?software=5")
+    finally:
+        app.explorer.close()
