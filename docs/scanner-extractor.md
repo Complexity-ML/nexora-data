@@ -16,10 +16,10 @@ Les volumes `minio-data` et `demo-data` stockent respectivement les objets S3 et
 
 ## Parcours Dash
 
-1. Lancer le scan, éventuellement limité à un ou plusieurs schémas.
-2. Choisir une table ou une vue.
-3. Sélectionner les colonnes et une limite de lignes.
-4. Lancer l’extraction et consulter l’adresse `s3://…` du résultat.
+1. Facultativement, lancer le scan pour consulter le catalogue complet.
+2. Renseigner une limite de lignes par table pour les essais, ou laisser le champ vide.
+3. Lancer la collecte : tous les objets et leurs colonnes sont inclus automatiquement.
+4. Consulter le résultat conservé dans MinIO.
 
 Le scan consulte les métadonnées, sans échantillonnage des lignes métier ni comptage complet. Il remonte types, nullabilité, valeurs par défaut, clés, index et commentaires disponibles. Les métadonnées non prises en charge sont signalées. Les relations non déclarées ne sont pas devinées. Les vues matérialisées ne sont pas encore listées séparément.
 
@@ -52,7 +52,7 @@ nexora-dash --demo
 
 Pour les exports MinIO hors Docker, définir dans l’environnement : `NEXORA_S3_ENDPOINT` (par exemple `http://127.0.0.1:9000`), `NEXORA_S3_BUCKET`, `NEXORA_S3_ACCESS_KEY` et `NEXORA_S3_SECRET_KEY`. Les commandes Python ne chargent pas `.env` automatiquement. MinIO doit être démarré et le bucket initialisé. L’option `--output` de `extract` permet explicitement un export local pour les tests ; l’interface utilise MinIO.
 
-`examples/selection.json` définit un label de provenance, une taille de lot et des objets avec schéma, nom, colonnes et limite. La limite vaut 10 000 lignes par défaut ; `null` demande une extraction complète en CLI. Dans Dash, la limite est comprise entre 1 et 1 000 000.
+`examples/selection.json` définit un label de provenance, une taille de lot et des objets avec schéma, nom, colonnes et limite. La limite vaut 10 000 lignes par défaut ; `null` demande une extraction complète en CLI. Dans Dash, une limite positive est facultative ; un champ vide demande la collecte complète.
 
 Une extraction limitée n’est ni ordonnée ni un échantillon statistique. Le manifeste signale la troncature. Les identifiants SQL sont cités par SQLAlchemy ; aucune requête SQL libre n’est acceptée.
 

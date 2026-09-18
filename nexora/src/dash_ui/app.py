@@ -111,85 +111,49 @@ def create_app(source_url=None, output=None, demo=False):
                         else "Accès local · Utiliser un compte SQL en lecture seule. La connexion reste côté serveur.",
                         className="notice",
                     ),
-                    html.Div(
+                    html.Section(
                         [
-                            html.Section(
+                            html.H2("Collecte SQL"),
+                            html.P(
+                                "Toutes les tables, vues et colonnes accessibles sont récupérées automatiquement."
+                            ),
+                            html.Label("Limite de lignes par table (facultatif)", htmlFor="limit"),
+                            dcc.Input(
+                                id="limit",
+                                className="nx-input",
+                                type="number",
+                                min=1,
+                                step=1,
+                                value=None,
+                                placeholder="Sans limite",
+                            ),
+                            html.Div(
                                 [
-                                    html.H2("01 · Scanner le catalogue"),
-                                    html.P(
-                                        "Métadonnées uniquement : aucune ligne métier n’est lue pendant le scan."
-                                    ),
-                                    html.Label("Schémas à explorer"),
-                                    dcc.Input(
-                                        id="schemas",
-                                        className="nx-input",
-                                        placeholder="Tous les schémas accessibles",
-                                        type="text",
-                                        debounce=True,
-                                    ),
-                                    html.Small(
-                                        "Plusieurs schémas : séparez leurs noms par une virgule."
-                                    ),
                                     html.Button(
                                         "Scanner la source",
                                         id="scan",
                                         n_clicks=0,
                                         className="nx-button",
                                     ),
-                                    html.Div(id="catalog-summary", className="summary"),
-                                ],
-                                className="nx-card",
-                            ),
-                            html.Section(
-                                [
-                                    html.H2("02 · Choisir les données"),
-                                    html.Label("Table ou vue"),
-                                    dcc.Dropdown(
-                                        id="object",
-                                        className="nx-select",
-                                        options=[],
-                                        placeholder="Lancez d’abord le scan",
-                                    ),
-                                    html.Label("Champs à extraire"),
-                                    dcc.Dropdown(
-                                        id="columns",
-                                        className="nx-select",
-                                        options=[],
-                                        multi=True,
-                                        placeholder="Sélection explicite des champs",
-                                    ),
-                                    html.Label("Limite de lignes"),
-                                    dcc.Input(
-                                        id="limit",
-                                        className="nx-input",
-                                        type="number",
-                                        min=1,
-                                        max=1000000,
-                                        step=1,
-                                        value=10000,
-                                    ),
-                                    html.Small(
-                                        "Extrait non ordonné, limité à 1 000 000 lignes dans l’interface."
-                                    ),
                                     html.Button(
-                                        "Extraire en Parquet →",
+                                        "Lancer la collecte",
                                         id="extract",
-                                        className="nx-button",
                                         n_clicks=0,
-                                        disabled=True,
+                                        className="nx-button",
                                     ),
                                 ],
-                                className="nx-card",
+                                className="source-actions",
                             ),
+                            html.Div(id="catalog-summary", className="summary"),
                         ],
-                        className="grid",
+                        className="nx-card collection-controls",
                     ),
                     html.Div("Prêt à explorer.", id="status", role="status", className="status"),
                     html.Section(
                         [
                             html.H2("Structure des champs"),
                             html.Div(
-                                "Sélectionnez une table pour consulter ses métadonnées.",
+                                "Le catalogue apparaîtra après le scan ou la collecte.",
                                 id="metadata",
                             ),
                         ],
@@ -215,46 +179,24 @@ def create_app(source_url=None, output=None, demo=False):
     )
 
     @app.callback(
-        Output("object", "options"),
-        Output("object", "value"),
         Output("catalog-summary", "children"),
+        Output("metadata", "children"),
         Input("catalog", "data"),
     )
-    def objects(catalog):
+    def show_catalog(catalog):
         if not catalog:
-            return [], None, ""
+            return "", "Le catalogue apparaîtra après le scan ou la collecte."
         objects = catalog["objects"]
-        options = [
-            {
-                "label": f"{o['schema']}.{o['name']} · {o['kind']}",
-                "value": json.dumps([o["schema"], o["name"]]),
-            }
-            for o in objects
+        count = sum(len(obj["columns"]) for obj in objects)
+        return f"{len(objects)} objets · {count} champs", [
+            html.Details(
+                [
+                    html.Summary(f"{obj['schema']}.{obj['name']} · {len(obj['columns'])} champs"),
+                    metadata_table(obj),
+                ]
+            )
+            for obj in objects
         ]
-        fields = sum(len(o["columns"]) for o in objects)
-        return options, None, f"{len(objects)} objets · {fields} champs · {catalog['dialect']}"
-
-    @app.callback(
-        Output("columns", "options"),
-        Output("columns", "value"),
-        Output("metadata", "children"),
-        Input("object", "value"),
-        State("catalog", "data"),
-    )
-    def columns(value, catalog):
-        if not value or not catalog:
-            return [], [], "Sélectionnez une table pour consulter ses métadonnées."
-        schema, name = json.loads(value)
-        obj = next(
-            (o for o in catalog["objects"] if (o["schema"], o["name"]) == (schema, name)), None
-        )
-        if not obj:
-            return [], [], "Objet introuvable : relancer le scan."
-        return (
-            [{"label": c["name"], "value": c["name"]} for c in obj["columns"]],
-            [],
-            metadata_table(obj),
-        )
 
     @app.callback(
         Output("catalog", "data"),
@@ -266,15 +208,12 @@ def create_app(source_url=None, output=None, demo=False):
         Input("scan", "n_clicks"),
         Input("extract", "n_clicks"),
         Input("poll", "n_intervals"),
-        State("schemas", "value"),
-        State("object", "value"),
-        State("columns", "value"),
         State("limit", "value"),
         State("job", "data"),
         State("catalog", "data"),
         prevent_initial_call=True,
     )
-    def act(scan_clicks, extract_clicks, ticks, schemas, value, selected, limit, job, catalog):
+    def act(scan_clicks, extract_clicks, ticks, limit, job, catalog):
         unchanged = (no_update,) * 6
         if ctx.triggered_id == "poll":
             if not job:
@@ -283,38 +222,37 @@ def create_app(source_url=None, output=None, demo=False):
             if result is None:
                 return unchanged
             if not result["ok"]:
-                return no_update, None, result["error"], no_update, False, not bool(catalog)
-            if "catalog" in result:
+                return no_update, None, result["error"], no_update, False, False
+            if "manifest" not in result and "catalog" in result:
                 return (
                     result["catalog"],
                     None,
-                    "Catalogue disponible. Choisissez une table ou une vue.",
+                    "Catalogue disponible. Tous les champs sont inclus dans la collecte.",
                     no_update,
                     False,
                     False,
                 )
             manifest = result["manifest"]
-            extracted = manifest["objects"][0]
+            extracted = manifest["objects"]
             report = html.Div(
                 [
                     html.Div(
-                        f"{extracted['rows']:,} lignes exportées".replace(",", " "),
+                        f"{sum(obj['rows'] for obj in extracted):,} lignes exportées".replace(
+                            ",", " "
+                        ),
                         className="result-number",
                     ),
                     html.P(
                         "Extrait tronqué : des lignes supplémentaires existent."
-                        if extracted["truncated"]
+                        if any(obj["truncated"] for obj in extracted)
                         else "Toutes les lignes de la requête ont été exportées."
                     ),
-                    html.P(f"Source : {extracted['schema']}.{extracted['name']}"),
+                    html.P(f"{len(extracted)} tables et vues collectées · tous les champs"),
                     html.P(f"Stockage : {result['directory']}"),
-                    html.P(
-                        f"Fichier : {extracted['file']} · Empreinte SHA-256 enregistrée dans manifest.json"
-                    ),
                 ]
             )
             return (
-                no_update,
+                result.get("catalog", no_update),
                 None,
                 "Extraction terminée · Parquet et manifeste publiés.",
                 report,
@@ -325,33 +263,22 @@ def create_app(source_url=None, output=None, demo=False):
             return unchanged
         try:
             if ctx.triggered_id == "scan":
-                kind, payload = (
-                    "scan",
-                    [s.strip() for s in schemas.split(",") if s.strip()] if schemas else None,
-                )
+                kind, payload = "scan", None
             else:
-                if not value or not selected or type(limit) is not int or not 1 <= limit <= 1000000:
+                if limit is not None and (type(limit) is not int or limit < 1):
                     return (
                         no_update,
                         no_update,
-                        "Choisissez une table, au moins un champ et une limite entière valide.",
+                        "La limite doit être un entier positif ou rester vide.",
                         no_update,
                         False,
-                        not bool(catalog),
+                        False,
                     )
-                schema, name = json.loads(value)
                 kind, payload = (
-                    "extract",
+                    "collect",
                     {
                         "source_label": "demo-enterprise" if demo else "configured-dw",
-                        "objects": [
-                            {
-                                "schema": schema,
-                                "name": name,
-                                "columns": selected,
-                                "row_limit": limit,
-                            }
-                        ],
+                        "row_limit": limit,
                     },
                 )
             ident = explorer.submit(kind, payload)
@@ -367,10 +294,10 @@ def create_app(source_url=None, output=None, demo=False):
             return (
                 no_update,
                 no_update,
-                "Un traitement est déjà en cours ou la sélection est invalide.",
+                "Un traitement est déjà en cours ou la limite est invalide.",
                 no_update,
                 False,
-                not bool(catalog),
+                False,
             )
 
     return app

@@ -6,7 +6,7 @@ Nexora-data est un outil Python/Dash d’exploration de bases SQL et d’extract
 
 - Scan des schémas, tables, vues et métadonnées des champs.
 - Consultation des types, clés et relations déclarées.
-- Sélection des tables et colonnes à extraire.
+- Collecte automatique de tous les objets et champs accessibles, avec limite de lignes facultative.
 - Extraction par lots vers MinIO avec un manifeste de provenance.
 - Jeu de données SQL fictif pour la démonstration.
 

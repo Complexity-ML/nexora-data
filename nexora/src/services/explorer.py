@@ -22,7 +22,7 @@ class Explorer:
         self.jobs = {}
 
     def submit(self, kind, payload):
-        if kind not in {"scan", "extract"}:
+        if kind not in {"scan", "extract", "collect"}:
             raise ValueError("Opération inconnue")
         with self.lock:
             if any(not f.done() for _, f in self.jobs.values()):
@@ -39,14 +39,33 @@ class Explorer:
             with source_connection(self.source_url) as conn:
                 if kind == "scan":
                     return {"ok": True, "catalog": scan(conn, payload)}
+                catalog = None
+                if kind == "collect":
+                    catalog = scan(conn)
+                    payload = {
+                        "source_label": payload["source_label"],
+                        "objects": [
+                            {
+                                "schema": obj["schema"],
+                                "name": obj["name"],
+                                "columns": [col["name"] for col in obj["columns"]],
+                                "row_limit": payload["row_limit"],
+                            }
+                            for obj in catalog["objects"]
+                        ],
+                    }
                 selection = Selection.model_validate(payload)
                 if self.output is None:
-                    return publish(conn, selection)
+                    result = publish(conn, selection)
+                    if catalog is not None:
+                        result["catalog"] = catalog
+                    return result
                 run = extract(conn, selection, self.output)
                 return {
                     "ok": True,
                     "manifest": json.loads((run / "manifest.json").read_text()),
                     "directory": str(run),
+                    **({"catalog": catalog} if catalog is not None else {}),
                 }
         except Exception as exc:  # noqa: BLE001 — never expose driver secrets to the UI
             return {

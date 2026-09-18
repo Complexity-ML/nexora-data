@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from pathlib import Path
 from threading import Event
 
 import pyarrow.parquet as pq
@@ -67,7 +68,7 @@ def callback(client, app, prefix, trigger, inputs, states=()):
     return response.json["response"]
 
 
-def test_dash_http_scan_select_extract(demo, tmp_path):
+def test_dash_http_collect_all(demo, tmp_path):
     app = create_app(f"sqlite:///{demo}", tmp_path / "bronze", demo=True)
     client = app.server.test_client()
     try:
@@ -77,61 +78,36 @@ def test_dash_http_scan_select_extract(demo, tmp_path):
         assert str(demo) not in layout.text
         for stylesheet in ("theme", "layout", "components", "sources"):
             assert client.get(f"/assets/{stylesheet}.css").status_code == 200
-        inputs = [("scan", "n_clicks", 1), ("extract", "n_clicks", 0), ("poll", "n_intervals", 0)]
-        states = [
-            ("schemas", "value", "main"),
-            ("object", "value", None),
-            ("columns", "value", []),
-            ("limit", "value", 100),
-            ("job", "data", None),
-            ("catalog", "data", None),
-        ]
-        started = callback(client, app, "..catalog.data", "scan.n_clicks", inputs, states)
-        job = started["job"]["data"]
-        app.explorer.jobs[job["id"]][1].result(timeout=10)
-        states[4] = ("job", "data", job)
-        finished = callback(client, app, "..catalog.data", "poll.n_intervals", inputs, states)
-        catalog = finished["catalog"]["data"]
-        assert len(catalog["objects"]) == 9
-        choices = callback(
-            client, app, "..object.options", "catalog.data", [("catalog", "data", catalog)]
-        )
-        assert len(choices["object"]["options"]) == 9
-        value = json.dumps(["main", "usage_observations"])
-        fields = callback(
-            client,
-            app,
-            "..columns.options",
-            "object.value",
-            [("object", "value", value)],
-            [("catalog", "data", catalog)],
-        )
-        assert {o["value"] for o in fields["columns"]["options"]} == {
-            "id",
-            "installation_id",
-            "observed_on",
-            "active_minutes",
-        }
-        states[1] = ("object", "value", value)
-        states[2] = ("columns", "value", ["id", "active_minutes"])
-        states[4] = ("job", "data", None)
-        states[5] = ("catalog", "data", catalog)
+        inputs = [("scan", "n_clicks", 0), ("extract", "n_clicks", 1), ("poll", "n_intervals", 0)]
+        states = [("limit", "value", 100), ("job", "data", None), ("catalog", "data", None)]
         started = callback(client, app, "..catalog.data", "extract.n_clicks", inputs, states)
         job = started["job"]["data"]
         result = app.explorer.jobs[job["id"]][1].result(timeout=10)
-        assert result["ok"]
-        assert result["manifest"]["objects"][0]["truncated"]
-        states[4] = ("job", "data", job)
+        assert result["ok"], result
+        states[1] = ("job", "data", job)
         finished = callback(client, app, "..catalog.data", "poll.n_intervals", inputs, states)
         assert "terminée" in finished["status"]["children"]
-        parquet = next((tmp_path / "bronze").glob("*/*.parquet"))
-        table = pq.read_table(parquet)
-        assert table.column_names == ["id", "active_minutes"]
+        assert len(finished["catalog"]["data"]["objects"]) == 9
+        manifest = result["manifest"]
+        assert len(manifest["objects"]) == 9
+        obj = next(o for o in manifest["objects"] if o["name"] == "usage_observations")
+        assert obj["truncated"]
+        table = pq.read_table(Path(result["directory"]) / obj["file"])
+        assert table.column_names == ["id", "installation_id", "observed_on", "active_minutes"]
         assert table.num_rows == 100
-        states[4] = ("job", "data", None)
-        states[2] = ("columns", "value", [])
-        invalid = callback(client, app, "..catalog.data", "extract.n_clicks", inputs, states)
-        assert "au moins un champ" in invalid["status"]["children"]
+        # An empty limit really exports the full source, including every view/column.
+        job = app.explorer.submit("collect", {"source_label": "full-test", "row_limit": None})
+        complete = app.explorer.jobs[job][1].result(timeout=10)
+        assert complete["ok"], complete
+        assert all(not o["truncated"] for o in complete["manifest"]["objects"])
+        assert (
+            next(
+                o["rows"]
+                for o in complete["manifest"]["objects"]
+                if o["name"] == "usage_observations"
+            )
+            > 100
+        )
     finally:
         app.explorer.close()
 

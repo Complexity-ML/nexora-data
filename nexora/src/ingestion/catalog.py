@@ -49,6 +49,8 @@ def scan(conn, schemas=None):
                     "primary_key": "get_pk_constraint",
                     "foreign_keys": "get_foreign_keys",
                     "indexes": "get_indexes",
+                    "unique_constraints": "get_unique_constraints",
+                    "check_constraints": "get_check_constraints",
                     "comment": "get_table_comment",
                 }
                 for field, method in methods.items():

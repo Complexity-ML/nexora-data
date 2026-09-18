@@ -35,15 +35,9 @@ inputs = [
     for i, p, v in [("scan", "n_clicks", 1), ("extract", "n_clicks", 0), ("poll", "n_intervals", 0)]
 ]
 state = [
-    {"id": i, "property": p, "value": v}
-    for i, p, v in [
-        ("schemas", "value", "main"),
-        ("object", "value", None),
-        ("columns", "value", []),
-        ("limit", "value", 100),
-        ("job", "data", None),
-        ("catalog", "data", None),
-    ]
+    {"id": "limit", "property": "value", "value": 100},
+    {"id": "job", "property": "data", "value": None},
+    {"id": "catalog", "property": "data", "value": None},
 ]
 
 
@@ -77,16 +71,14 @@ def wait_job():
 
 
 started = call("scan.n_clicks")
-state[4]["value"] = started["job"]["data"]
+state[1]["value"] = started["job"]["data"]
 catalog = wait_job()["catalog"]["data"]
 assert len(catalog["objects"]) == 9
-state[1]["value"] = json.dumps(["main", "usage_observations"])
-state[2]["value"] = ["id", "observed_on", "active_minutes"]
-state[4]["value"] = None
-state[5]["value"] = catalog
+state[1]["value"] = None
+state[2]["value"] = catalog
 inputs[1]["value"] = 1
 started = call("extract.n_clicks")
-state[4]["value"] = started["job"]["data"]
+state[1]["value"] = started["job"]["data"]
 result = wait_job()
 report = result["result"]["children"]["props"]["children"]
 location = next(
@@ -101,12 +93,13 @@ client = client_from_env()
 manifest = json.loads(
     client.get_object(Bucket=bucket, Key=prefix + "/manifest.json")["Body"].read()
 )
-obj = manifest["objects"][0]
+assert len(manifest["objects"]) == 9
+obj = next(o for o in manifest["objects"] if o["name"] == "usage_observations")
 content = client.get_object(Bucket=bucket, Key=obj["key"])["Body"].read()
 assert hashlib.sha256(content).hexdigest() == obj["sha256"]
 table = pq.read_table(io.BytesIO(content))
 assert table.num_rows == 100
-assert table.column_names == ["id", "observed_on", "active_minutes"]
+assert table.column_names == ["id", "installation_id", "observed_on", "active_minutes"]
 assert obj["truncated"]
 assert not list(Path("/app/data").glob("**/*.parquet"))
 print(
