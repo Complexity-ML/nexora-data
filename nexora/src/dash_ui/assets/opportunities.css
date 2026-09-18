@@ -1,0 +1,7 @@
+.opportunities-page > div > p { margin: 16px 0; }
+.opportunities-page .table-wrap td { vertical-align: top; }
+.opportunities-page .table-wrap p { margin: 0 0 8px; }
+.opportunities-page details { margin-top: 14px; }
+.opportunities-page summary { cursor: pointer; }
+.opportunities-page details ul { max-height: 180px; overflow: auto; padding-left: 20px; }
+.opportunities-page a { color: var(--nx-accent); font-weight: 600; white-space: nowrap; }

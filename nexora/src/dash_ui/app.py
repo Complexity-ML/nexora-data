@@ -7,7 +7,7 @@ from pathlib import Path
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from ..services.explorer import Explorer
-from . import dashboard, extractions
+from . import dashboard, extractions, opportunities
 
 
 def metadata_table(obj):
@@ -90,6 +90,12 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
                     ),
                     html.Div("DATA WORKSPACE", className="eyebrow"),
                     dcc.Link("Analyse", href="/", id="nav-dashboard", className="nav-active"),
+                    dcc.Link(
+                        "Opportunités",
+                        href="/opportunities",
+                        id="nav-opportunities",
+                        className="nav-muted",
+                    ),
                     dcc.Link("Sources", href="/sources", id="nav-sources", className="nav-muted"),
                     dcc.Link(
                         "Extractions",
@@ -217,7 +223,56 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
             ),
         ]
     )
+    app.layout.children[1].children.append(
+        html.Div(id="page-opportunities", className="opportunities-page", style={"display": "none"})
+    )
     dashboard.register(app, dataset, dataset_provider)
+
+    @app.callback(
+        Output("page-opportunities", "children"),
+        Input("url", "pathname"),
+        Input("result", "children"),
+        Input("extraction-history", "children"),
+    )
+    def show_opportunities(path, report, history):
+        if path != "/opportunities":
+            return no_update
+        current = (
+            (dataset_provider() if dataset_provider else dataset)
+            if dataset is not None
+            else dashboard.dataset_from_report(report)
+        )
+        return opportunities.layout(current)
+
+    @app.callback(
+        Output("software-filter", "value"),
+        Output("organization-filter", "value"),
+        Output("period-filter", "start_date"),
+        Output("period-filter", "end_date"),
+        Input("url", "search"),
+        Input("page-dashboard", "children"),
+        State("result", "children"),
+    )
+    def select_opportunity(search, page, report):
+        from datetime import date
+        from urllib.parse import parse_qs
+
+        if not search:
+            return (no_update,) * 4
+        try:
+            params = parse_qs(search.lstrip("?"))
+            sid, oid = int(params["software"][0]), int(params["organization"][0])
+            start, end = (
+                date.fromisoformat(params["start"][0]),
+                date.fromisoformat(params["end"][0]),
+            )
+            current = dataset if dataset is not None else dashboard.dataset_from_report(report)
+            if current is None:
+                return (no_update,) * 4
+            current.series(sid, oid, start, end)
+            return sid, oid, start.isoformat(), end.isoformat()
+        except (KeyError, ValueError):
+            return (no_update,) * 4
 
     if dataset is None:
 
@@ -233,16 +288,18 @@ def create_app(source_url=None, output=None, demo=False, dataset=None, dataset_p
         Output("page-dashboard", "style"),
         Output("page-sources", "style"),
         Output("page-extractions", "style"),
+        Output("page-opportunities", "style"),
         Output("nav-dashboard", "className"),
         Output("nav-sources", "className"),
         Output("nav-extractions", "className"),
+        Output("nav-opportunities", "className"),
         Input("url", "pathname"),
     )
     def route(path):
-        index = {"/sources": 1, "/extractions": 2}.get(path, 0)
+        index = {"/sources": 1, "/extractions": 2, "/opportunities": 3}.get(path, 0)
         return (
-            *[{} if i == index else {"display": "none"} for i in range(3)],
-            *["nav-active" if i == index else "nav-muted" for i in range(3)],
+            *[{} if i == index else {"display": "none"} for i in range(4)],
+            *["nav-active" if i == index else "nav-muted" for i in range(4)],
         )
 
     @app.callback(

@@ -119,3 +119,11 @@ Dans **Extractions**, le bouton **Supprimer** retire les Parquet et le manifeste
 Les deux méthodes utilisent les observations complètes des 56 derniers jours. La tendance ajuste une droite par jour de semaine ; l’arbre de régression utilise la date et le jour de semaine, avec une profondeur maximale de 3 et au moins 4 observations par feuille. Ces paramètres sont fixes, sans recherche d’hyperparamètres.
 
 La MAE à J+7 est mesurée sur les mêmes dates historiques disponibles (14 au maximum). Pour chaque date testée, les deux méthodes utilisent uniquement l’historique disponible sept jours auparavant. Une erreur plus faible indique une meilleure performance sur cette période, sans garantir les prévisions futures. Aucune pondération de classes : la cible est un nombre d’utilisateurs.
+
+### Opportunités de revue SAM
+
+Le menu Opportunités exploite la collecte analytique publiée. Il signale les installations sans usage ou actives seulement 1 à 2 jours sur les 28 derniers jours. Il exige une installation antérieure à la période et une couverture complète de l’entité. Les installations avec une couverture insuffisante sont comptées séparément, jamais présentées comme inactives.
+
+Un signal de baisse compare les utilisateurs actifs quotidiens moyens sur deux périodes consécutives de 28 jours, avec une couverture complète et les mêmes installations présentes avant les deux périodes. Le seuil de détection est une baisse d’au moins 30 %. Ces seuils sont des critères de revue explicites, pas des règles contractuelles. Les signaux peuvent concerner un même périmètre et ne doivent pas être additionnés en licences récupérables.
+
+Chaque ligne indique le logiciel, l’entité, les observations et la couverture. Le lien Voir l’analyse ouvre Plotly avec le même logiciel, la même entité et la période concernée. La décision et la qualification des économies restent au SAM.
